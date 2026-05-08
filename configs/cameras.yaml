@@ -1,0 +1,26 @@
+# Camera topology consumed by the multi-camera orchestrator.
+# `zone` is a free-form string used by the cross-camera matcher to
+# constrain candidate pairings (a person leaving zone A can only enter
+# zones declared adjacent to A).
+
+cameras:
+  - id: "cam-01"
+    uri: "file:///app/data/cam01.mp4"
+    zone: "lobby"
+  - id: "cam-02"
+    uri: "file:///app/data/cam02.mp4"
+    zone: "corridor"
+  - id: "cam-03"
+    uri: "file:///app/data/cam03.mp4"
+    zone: "exit"
+
+# Allowed transitions. Empty list -> any-to-any.
+transitions:
+  - from: "lobby"
+    to: "corridor"
+  - from: "corridor"
+    to: "lobby"
+  - from: "corridor"
+    to: "exit"
+  - from: "exit"
+    to: "corridor"

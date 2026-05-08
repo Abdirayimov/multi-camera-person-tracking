@@ -1,0 +1,62 @@
+# mc_tracking system configuration.
+
+pipeline:
+  muxer_width: 1280
+  muxer_height: 720
+  batch_size: 1
+  emit_overlay: true
+
+detection:
+  engine_path: "models/engines/yolov8s_person_fp16.engine"
+  input_width: 640
+  input_height: 640
+  confidence_threshold: 0.4
+  nms_iou_threshold: 0.5
+  person_class_id: 0
+
+# Single-camera tracker selection. The same config keys are read by
+# every backend; unused keys are ignored.
+tracker:
+  type: "bytetrack"          # one of: bytetrack | iou | nvdcf
+
+  bytetrack:
+    high_thresh: 0.5         # detections >= this go through first-stage matching
+    low_thresh: 0.1          # detections in [low, high] go through second-stage matching
+    new_track_thresh: 0.6    # confidence required to start a new tentative track
+    track_buffer: 30         # frames a lost track is kept alive
+    match_thresh: 0.8        # 1 - IoU cost ceiling for a valid association
+    aspect_ratio_thresh: 1.6 # discard skinny boxes (likely false positives)
+
+  iou:
+    iou_thresh: 0.3          # minimum IoU for a match
+    max_age: 30              # frames a track is kept after losing detection
+    min_hits: 3              # consecutive observations required to confirm
+
+  nvdcf:
+    config_path: "configs/tracker_nvdcf.yml"
+    tracker_width: 640
+    tracker_height: 384
+
+# Per-track ReID embedding extractor. Used both for stronger
+# in-camera association (reduces ID switches under occlusion) and as
+# the primary signal for cross-camera matching.
+reid:
+  enabled: true
+  engine_path: "models/engines/osnet_x0_25_fp16.engine"
+  input_width: 128
+  input_height: 256
+  embedding_dim: 256
+  batch_size: 16
+  gallery_size_per_track: 8  # rolling appearance bank per track
+
+# Cross-camera matching. Disabled by default; turn on when running
+# multiple cameras through the orchestrator.
+crosscam:
+  enabled: true
+  reid_threshold: 0.7        # cosine similarity above this counts as a candidate
+  spatial_overlap_window_ms: 5000   # tracks must be active within this window
+  hungarian_cost_cap: 0.4    # reject assignments whose 1 - cosine cost exceeds this
+
+logging:
+  level: "info"
+  json: true

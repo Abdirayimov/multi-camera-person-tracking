@@ -1,0 +1,43 @@
+%YAML:1.0
+####################################################################
+# NvDCF tracker config (DeepStream native).
+# Used only when tracker.type = "nvdcf".
+####################################################################
+
+BaseConfig:
+  minDetectorConfidence: 0.4
+
+TargetManagement:
+  enableBboxUnClipping: 1
+  maxTargetsPerStream: 64
+  preserveStreamUpdateOrder: 1
+  minIouDiff4NewTarget: 0.5
+  minTrackerConfidence: 0.3
+  probationAge: 3
+  maxShadowTrackingAge: 30
+  earlyTerminationAge: 1
+
+DataAssociator:
+  dataAssociatorType: 0
+  associationMatcherType: 0
+  matchingAlgorithm: 0
+  thresholdMahalanobis: 9.4877
+  minMatchingScore4Overall: 0.0
+  minMatchingScore4SizeSimilarity: 0.6
+  minMatchingScore4Iou: 0.0
+  minMatchingScore4VisualSimilarity: 0.7
+
+StateEstimator:
+  stateEstimatorType: 1
+  processNoiseVar4Loc: 2.0
+  processNoiseVar4Size: 1.0
+  processNoiseVar4Vel: 0.1
+  measurementNoiseVar4Detector: 4.0
+  measurementNoiseVar4Tracker: 16.0
+
+VisualTracker:
+  visualTrackerType: 1
+  useColorNames: 1
+  useHog: 1
+  featureImgSizeLevel: 3
+  featureFocusOffsetFactor_y: -0.2

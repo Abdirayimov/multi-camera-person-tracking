@@ -1,0 +1,56 @@
+# Build artifacts
+build/
+build-*/
+cmake-build-*/
+out/
+bin/
+lib/
+*.o
+*.a
+*.so
+*.dylib
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
+
+# IDE
+.vscode/
+.idea/
+.cache/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+
+# Models / weights / engines
+models/
+*.onnx
+*.engine
+*.trt
+*.plan
+*.bin
+*.pth
+*.pt
+
+# Data
+data/raw/
+data/processed/
+storage/
+videos/
+crops/
+
+# Logs
+logs/
+*.log
