@@ -1,0 +1,22 @@
+services:
+  mc_tracking:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: mc-tracking:0.1.0
+    environment:
+      - LOG_LEVEL=info
+      - ENGINES_DIR=/app/models/engines
+      - ONNX_DIR=/app/models/onnx
+    volumes:
+      - ./configs:/app/configs:ro
+      - ./models:/app/models
+      - ./data:/app/data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: "no"
