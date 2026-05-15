@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <optional>
 #include <unordered_map>
 
 #include "mc_tracking/reid/osnet_extractor.hpp"

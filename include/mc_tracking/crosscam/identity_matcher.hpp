@@ -9,6 +9,7 @@
 
 #include "mc_tracking/config/system_config.hpp"
 #include "mc_tracking/reid/osnet_extractor.hpp"
+#include "mc_tracking/reid/reid_gallery.hpp"
 #include "mc_tracking/tracker/track.hpp"
 
 namespace mc_tracking::crosscam {
