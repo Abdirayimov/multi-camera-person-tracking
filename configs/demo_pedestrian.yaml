@@ -1,6 +1,6 @@
 # Demo config for the single-camera tracking animation in the README.
 #
-# YOLO11l person detector + BYTETrack, ReID and cross-camera matching
+# YOLO11x person detector + BYTETrack, ReID and cross-camera matching
 # off (single clip). Reproduces on the OpenCV vtest.avi sample:
 #
 #   ./build/mc_tracking_video --config configs/demo_pedestrian.yaml \
@@ -8,8 +8,9 @@
 #
 # The detector decodes the Ultralytics detection head (1 x 84 x N), which
 # is shared by YOLOv8 / YOLOv9 / YOLO11 - so swapping in a newer/larger
-# checkpoint is just a re-export. YOLO11l at a 960 input picks up the
-# small, distant people that yolov8n at 640 missed.
+# checkpoint is just a re-export. YOLO11x (the largest) at a 1280 input
+# is the high-recall end of the curve: it picks up the small, distant
+# pedestrians that smaller models / lower resolutions miss.
 
 pipeline:
   muxer_width: 768
@@ -18,19 +19,19 @@ pipeline:
   emit_overlay: true
 
 detection:
-  engine_path: "models/engines/yolo11l_person_fp16.engine"
-  input_width: 960          # higher input resolution -> small/far people
-  input_height: 960
-  confidence_threshold: 0.25  # lower threshold -> higher recall
+  engine_path: "models/engines/yolo11x_person_fp16.engine"
+  input_width: 1280         # high input resolution -> tiny/far people
+  input_height: 1280
+  confidence_threshold: 0.20  # low threshold -> max recall
   nms_iou_threshold: 0.5
   person_class_id: 0
 
 tracker:
   type: "bytetrack"
   bytetrack:
-    high_thresh: 0.4
+    high_thresh: 0.35
     low_thresh: 0.1
-    new_track_thresh: 0.4
+    new_track_thresh: 0.3
     track_buffer: 30
     match_thresh: 0.8
     aspect_ratio_thresh: 3.0

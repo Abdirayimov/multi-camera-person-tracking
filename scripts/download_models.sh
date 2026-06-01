@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Pointers to the public ONNX checkpoints this repo expects.
 #
-#   yolo11l.onnx       Ultralytics YOLO11l, person class only
+#   yolo11x.onnx       Ultralytics YOLO11x, person class only
 #   osnet_x0_25.onnx   Kaiyang Zhou's OSNet (light variant)
 #
 # The detector decodes the Ultralytics detection head (1 x 84 x N),
@@ -14,10 +14,10 @@
 cat <<EOF
 Required ONNX files (placed in models/onnx/):
 
-  1. YOLO11l (person detector; larger input -> better small-person recall)
+  1. YOLO11x (person detector; larger input -> better small-person recall)
      pip install ultralytics
-     yolo export model=yolo11l.pt format=onnx imgsz=960
-     mv yolo11l.onnx models/onnx/
+     yolo export model=yolo11x.pt format=onnx imgsz=1280
+     mv yolo11x.onnx models/onnx/
 
   2. OSNet x0_25 (256-d)
      git clone https://github.com/KaiyangZhou/deep-person-reid.git

@@ -6,10 +6,10 @@ ONNX_DIR="${ROOT}/models/onnx"
 ENG_DIR="${ROOT}/models/engines"
 mkdir -p "${ENG_DIR}"
 
-if [[ -f "${ONNX_DIR}/yolo11l.onnx" ]]; then
-    echo "building YOLO11l engine..."
-    trtexec --onnx="${ONNX_DIR}/yolo11l.onnx" \
-        --saveEngine="${ENG_DIR}/yolo11l_person_fp16.engine" \
+if [[ -f "${ONNX_DIR}/yolo11x.onnx" ]]; then
+    echo "building YOLO11x engine..."
+    trtexec --onnx="${ONNX_DIR}/yolo11x.onnx" \
+        --saveEngine="${ENG_DIR}/yolo11x_person_fp16.engine" \
         --fp16
 fi
 
