@@ -15,6 +15,40 @@
 
 ---
 
+## Demo
+
+<p align="center">
+  <img src="docs/assets/mctrack_demo.gif" width="560" alt="mc_tracking_video: YOLOv8 person detection + BYTETrack on a pedestrian clip, persistent per-track IDs and colored boxes">
+</p>
+
+The actual output of the C++ `mc_tracking_video` binary on the OpenCV
+`vtest.avi` pedestrian sample: YOLOv8n detections (TensorRT FP16) fed
+into BYTETrack, with each track drawn in its own colour and labelled
+with its local id and detection confidence. IDs persist as people
+cross the plaza and survive the brief mutual occlusions that make a
+naive IoU tracker swap labels.
+
+<p align="center">
+  <img src="docs/assets/mctrack_still.png" width="560" alt="Per-track colored boxes with id and confidence labels">
+</p>
+
+Reproduce (the YOLOv8 ONNX export is the one documented in
+`scripts/download_models.sh`; tracking and rendering are all C++):
+
+```bash
+yolo export model=yolov8n.pt format=onnx imgsz=640     # model prep
+./scripts/build_engines.sh                              # ONNX -> FP16 engine
+curl -L -o vtest.avi https://github.com/opencv/opencv/raw/4.x/samples/data/vtest.avi
+./build/mc_tracking_video --config configs/demo_pedestrian.yaml \
+    --input vtest.avi --output tracked.mp4
+```
+
+> Rendered inside the project's DeepStream Docker image running the
+> compiled `mc_tracking_video` (BYTETrack backend, ReID off for this
+> single-camera clip); `ffmpeg` only handled video decode/encode.
+
+---
+
 ## Why this exists
 
 Single-camera tracking is largely solved. Cross-camera tracking is

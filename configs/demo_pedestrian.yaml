@@ -1,0 +1,41 @@
+# Demo config for the single-camera tracking animation in the README.
+#
+# YOLOv8n person detector + BYTETrack, ReID and cross-camera matching
+# off (single clip). Reproduces on the OpenCV vtest.avi sample:
+#
+#   ./build/mc_tracking_video --config configs/demo_pedestrian.yaml \
+#       --input vtest.avi --output tracked.mp4
+
+pipeline:
+  muxer_width: 768
+  muxer_height: 576
+  batch_size: 1
+  emit_overlay: true
+
+detection:
+  engine_path: "models/engines/yolov8n_person_fp16.engine"
+  input_width: 640
+  input_height: 640
+  confidence_threshold: 0.35
+  nms_iou_threshold: 0.5
+  person_class_id: 0
+
+tracker:
+  type: "bytetrack"
+  bytetrack:
+    high_thresh: 0.5
+    low_thresh: 0.1
+    new_track_thresh: 0.5
+    track_buffer: 30
+    match_thresh: 0.8
+    aspect_ratio_thresh: 3.0
+
+reid:
+  enabled: false
+
+crosscam:
+  enabled: false
+
+logging:
+  level: "info"
+  json: false
