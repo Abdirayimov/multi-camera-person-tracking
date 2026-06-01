@@ -1,7 +1,7 @@
 <h1 align="center">multi-camera-person-tracking</h1>
 
 <p align="center">
-  <i>C++ pipeline for tracking people across many cameras with YOLOv8 + a pluggable single-camera tracker (BYTETrack / IoU / NvDCF), OSNet ReID, and Hungarian-assigned cross-camera identity matching.</i>
+  <i>C++ pipeline for tracking people across many cameras with a YOLO11 detector + a pluggable single-camera tracker (BYTETrack / IoU / NvDCF), OSNet ReID, and Hungarian-assigned cross-camera identity matching.</i>
 </p>
 
 <p align="center">
@@ -18,34 +18,42 @@
 ## Demo
 
 <p align="center">
-  <img src="docs/assets/mctrack_demo.gif" width="560" alt="mc_tracking_video: YOLOv8 person detection + BYTETrack on a pedestrian clip, persistent per-track IDs and colored boxes">
+  <img src="docs/assets/mctrack_demo.gif" width="560" alt="mc_tracking_video: YOLO11l person detection + BYTETrack on a pedestrian clip, persistent per-track IDs and colored boxes">
 </p>
 
 The actual output of the C++ `mc_tracking_video` binary on the OpenCV
-`vtest.avi` pedestrian sample: YOLOv8n detections (TensorRT FP16) fed
+`vtest.avi` pedestrian sample: **YOLO11l** detections (TensorRT) fed
 into BYTETrack, with each track drawn in its own colour and labelled
 with its local id and detection confidence. IDs persist as people
 cross the plaza and survive the brief mutual occlusions that make a
 naive IoU tracker swap labels.
 
+The detector decodes the Ultralytics detection head (`1 x 84 x N`),
+which is shared across **YOLOv8 / YOLOv9 / YOLO11** — so moving from a
+small `yolov8n@640` to `yolo11l@960` is a re-export, no code change.
+The larger model at a higher input resolution picks up the small,
+distant pedestrians the nano model missed. (YOLOv10's NMS-free head has
+a different layout and would need a different decoder.)
+
 <p align="center">
   <img src="docs/assets/mctrack_still.png" width="560" alt="Per-track colored boxes with id and confidence labels">
 </p>
 
-Reproduce (the YOLOv8 ONNX export is the one documented in
+Reproduce (the export is the one documented in
 `scripts/download_models.sh`; tracking and rendering are all C++):
 
 ```bash
-yolo export model=yolov8n.pt format=onnx imgsz=640     # model prep
-./scripts/build_engines.sh                              # ONNX -> FP16 engine
+yolo export model=yolo11l.pt format=onnx imgsz=960     # model prep
+./scripts/build_engines.sh                             # ONNX -> engine
 curl -L -o vtest.avi https://github.com/opencv/opencv/raw/4.x/samples/data/vtest.avi
 ./build/mc_tracking_video --config configs/demo_pedestrian.yaml \
     --input vtest.avi --output tracked.mp4
 ```
 
-> Rendered inside the project's DeepStream Docker image running the
-> compiled `mc_tracking_video` (BYTETrack backend, ReID off for this
-> single-camera clip); `ffmpeg` only handled video decode/encode.
+> Detection runs on the YOLO11l TensorRT engine on an RTX 4080; the
+> BYTETrack association and the box/label overlay are all C++ (ReID off
+> for this single-camera clip). `ffmpeg` only handled video
+> decode/encode.
 
 ---
 
@@ -78,7 +86,8 @@ patterns. All algorithms are public; the code is original.
 
 ## What's inside
 
-- **YOLOv8 person detector** with letterboxed 640x640 input
+- **YOLO11 person detector** with letterboxed input (decodes the
+  Ultralytics `1 x 84 x N` head shared by YOLOv8 / YOLOv9 / YOLO11)
 - **Three single-camera tracker backends behind a common interface:**
     - `ByteTrack` - two-stage cascade (Zhang et al., ECCV 2022)
     - `IouTracker` - greedy IoU baseline
@@ -96,7 +105,7 @@ patterns. All algorithms are public; the code is original.
 ```
                        per camera
    ┌────────────────────────────────────────────────────────┐
-   │  frame  →  YOLOv8  →  tracker (bytetrack/iou/nvdcf)   │
+   │  frame  →  YOLO11  →  tracker (bytetrack/iou/nvdcf)   │
    │             ↓            ↓                             │
    │         person crops    confirmed tracks (local_id)    │
    │             ↓                                          │
@@ -210,14 +219,19 @@ When `transitions` is empty, any-to-any pairing is allowed.
 
 ## Performance
 
-Indicative numbers on synthetic 720p input, RTX 3090, bytetrack +
-OSNet enabled, single camera:
+Indicative numbers, single camera, bytetrack:
 
-| Stage                        | p50 latency  |
-|------------------------------|-------------:|
-| YOLOv8s detect (1 frame)     | ~7 ms        |
-| BYTETrack association        | <1 ms        |
-| OSNet ReID (8 crops, batched)| ~3 ms        |
+| Stage                              | p50 latency  |
+|------------------------------------|-------------:|
+| YOLO11l detect (1 frame, 960 in)   | ~10-15 ms    |
+| YOLOv8n detect (1 frame, 640 in)   | ~5 ms        |
+| BYTETrack association              | <1 ms        |
+| OSNet ReID (8 crops, batched)      | ~3 ms        |
+
+The detector dominates the budget: `yolo11l@960` trades latency for the
+recall you see in the demo, while `yolov8n@640` is the cheap end. Pick
+the point on that curve your deployment needs — it is a config + engine
+swap, not a code change.
 
 Cross-camera matching adds <0.5 ms/frame even with 64 active
 global ids; the cost is dominated by the embedding extraction
