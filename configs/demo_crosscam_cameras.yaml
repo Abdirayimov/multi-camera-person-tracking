@@ -1,0 +1,16 @@
+# Two adjacent views (left/right split of one clip) for the
+# crosscam_split_demo. The transitions allow a person to move between
+# the two zones in either direction, so the matcher will try to link a
+# track that disappears from one view with one appearing in the other.
+
+cameras:
+  - id: "cam-01"
+    uri: "left-half"
+    zone: "left"
+  - id: "cam-02"
+    uri: "right-half"
+    zone: "right"
+
+transitions:
+  - { from: "left", to: "right" }
+  - { from: "right", to: "left" }

@@ -93,6 +93,11 @@ target_link_libraries(mc_tracking_video PRIVATE mc_tracking)
 if(BUILD_TOOLS)
     add_executable(mc_tracking_benchmark tools/benchmark.cpp)
     target_link_libraries(mc_tracking_benchmark PRIVATE mc_tracking)
+
+    # Cross-camera ReID demo: splits one clip into two views and runs
+    # the full MultiCameraOrchestrator over them.
+    add_executable(crosscam_split_demo tools/crosscam_split_demo.cpp)
+    target_link_libraries(crosscam_split_demo PRIVATE mc_tracking)
 endif()
 
 if(BUILD_TESTS)

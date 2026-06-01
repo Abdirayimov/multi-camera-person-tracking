@@ -17,43 +17,63 @@
 
 ## Demo
 
+### Single-camera tracking
+
 <p align="center">
-  <img src="docs/assets/mctrack_demo.gif" width="560" alt="mc_tracking_video: YOLO11x person detection + BYTETrack on a pedestrian clip, persistent per-track IDs and colored boxes">
+  <img src="docs/assets/mctrack_demo.gif" width="540" alt="YOLO11x person detection + BYTETrack on a busy concourse: many people tracked with persistent per-track IDs and colored boxes">
 </p>
 
-The actual output of the C++ `mc_tracking_video` binary on the OpenCV
-`vtest.avi` pedestrian sample: **YOLO11x** detections (TensorRT) fed
-into BYTETrack, with each track drawn in its own colour and labelled
-with its local id and detection confidence. IDs persist as people
-cross the plaza and survive the brief mutual occlusions that make a
-naive IoU tracker swap labels.
+The C++ tracking pipeline on a busy pedestrian concourse: **YOLO11x**
+detections (TensorRT) fed into BYTETrack, each track in its own colour,
+labelled with its local id and detection confidence. IDs persist
+through the dense mutual occlusions that make a naive IoU tracker swap
+labels.
 
 The detector decodes the Ultralytics detection head (`1 x 84 x N`),
-which is shared across **YOLOv8 / YOLOv9 / YOLO11** — so moving from a
-small `yolov8n@640` to `yolo11x@1280` is a re-export, no code change.
-The larger model at a higher input resolution picks up the small,
-distant pedestrians the nano model missed. (YOLOv10's NMS-free head has
-a different layout and would need a different decoder.)
+shared across **YOLOv8 / YOLOv9 / YOLO11** — so moving to a larger /
+newer checkpoint is a re-export, no code change. (YOLOv10's NMS-free
+head has a different layout and would need a different decoder.)
+
+### Cross-camera re-identification
 
 <p align="center">
-  <img src="docs/assets/mctrack_still.png" width="560" alt="Per-track colored boxes with id and confidence labels">
+  <img src="docs/assets/crosscam_demo.gif" width="620" alt="Cross-camera ReID: one clip split into two adjacent views; a person leaving the left view keeps the same global id in the right view">
 </p>
 
-Reproduce (the export is the one documented in
-`scripts/download_models.sh`; tracking and rendering are all C++):
+This is what the repo is really about. The clip is split into two
+adjacent, non-overlapping views (`cam-01` / `cam-02`). Each view runs
+its own detector + BYTETrack + **OSNet ReID**; the
+`MultiCameraOrchestrator` then runs the `IdentityMatcher` (ReID cosine
+similarity, gated by the zone-transition table and a spatial-temporal
+window, solved with Hungarian assignment) to assign a **global id**
+per physical person. Boxes are coloured by global id, so a person who
+leaves the left view and re-enters the right view is re-identified and
+keeps the same colour — the `G<id>` label is shared across both views.
+
+Reproduce (exports documented in `scripts/download_models.sh`; all
+tracking, ReID and matching are C++):
 
 ```bash
-yolo export model=yolo11x.pt format=onnx imgsz=1280     # model prep
-./scripts/build_engines.sh                             # ONNX -> engine
-curl -L -o vtest.avi https://github.com/opencv/opencv/raw/4.x/samples/data/vtest.avi
+yolo export model=yolo11x.pt format=onnx imgsz=1280     # detector prep
+# + an OSNet x0_25 ReID export (osnet_x0_25.onnx, 512-d)
+./scripts/build_engines.sh                              # ONNX -> engines
+
+# single-camera tracking
 ./build/mc_tracking_video --config configs/demo_pedestrian.yaml \
-    --input vtest.avi --output tracked.mp4
+    --input people.mp4 --output tracked.mp4
+
+# cross-camera ReID (one clip split into two views)
+./build/crosscam_split_demo --config configs/demo_crosscam.yaml \
+    --cameras configs/demo_crosscam_cameras.yaml \
+    --input people.mp4 --output crosscam.mp4
 ```
 
-> Detection runs on the YOLO11x TensorRT engine on an RTX 4080; the
-> BYTETrack association and the box/label overlay are all C++ (ReID off
-> for this single-camera clip). `ffmpeg` only handled video
-> decode/encode.
+> Rendered on an RTX 4080: YOLO11x + OSNet TensorRT engines for
+> detection/ReID, all BYTETrack association, cross-camera matching and
+> overlay in C++. `ffmpeg` only decoded/encoded the frames. The
+> single-camera clip is a CC0 concourse video from Pexels; the
+> cross-camera demo splits one clip into two views to stand in for two
+> real cameras.
 
 ---
 
