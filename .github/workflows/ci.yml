@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# GitHub-hosted runners carry no CUDA, TensorRT or DeepStream, so the full
+# build cannot run here. CI covers what it honestly can: formatting and
+# static analysis. Build the pipeline locally or through docker/Dockerfile.
+
+jobs:
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Check formatting
+        run: |
+          find src include tools \
+               \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -print0 \
+            | xargs -0 clang-format --dry-run --Werror
+
+  static-analysis:
+    name: cppcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      # The CUDA / TensorRT / DeepStream headers are absent on the runner,
+      # hence the include suppressions; everything else is an error.
+      - name: Run cppcheck
+        run: |
+          cppcheck --enable=warning,style,performance \
+                   --error-exitcode=1 \
+                   --inline-suppr \
+                   --suppress=missingInclude \
+                   --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction \
+                   --suppress=useStlAlgorithm \
+                   --std=c++17 \
+                   src include tools
