@@ -17,8 +17,7 @@ namespace mc_tracking::pipeline {
 /// GLib loop instead; this class is the OpenCV-only path.
 class MultiCameraOrchestrator {
 public:
-    MultiCameraOrchestrator(const config::SystemConfig& cfg,
-                            const config::CamerasConfig& cameras);
+    MultiCameraOrchestrator(const config::SystemConfig& cfg, const config::CamerasConfig& cameras);
 
     /// Add a camera; returns the SingleCameraPipeline so callers can
     /// feed frames into it directly.

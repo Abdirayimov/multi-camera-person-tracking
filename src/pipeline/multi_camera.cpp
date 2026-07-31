@@ -5,13 +5,13 @@
 namespace mc_tracking::pipeline {
 
 MultiCameraOrchestrator::MultiCameraOrchestrator(const config::SystemConfig& cfg,
-                                                  const config::CamerasConfig& cameras)
+                                                 const config::CamerasConfig& cameras)
     : cfg_(cfg), cameras_cfg_(cameras) {
     matcher_ = std::make_unique<crosscam::IdentityMatcher>(cfg_.crosscam, cameras_cfg_);
 }
 
 SingleCameraPipeline& MultiCameraOrchestrator::add_camera(const std::string& id,
-                                                           const std::string& zone) {
+                                                          const std::string& zone) {
     auto pipeline = std::make_unique<SingleCameraPipeline>(id, zone, cfg_);
     if (pipeline->gallery() != nullptr) {
         matcher_->register_gallery(id, pipeline->gallery());

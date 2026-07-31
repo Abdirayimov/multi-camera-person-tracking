@@ -23,7 +23,7 @@ IdentityMatcher::IdentityMatcher(const config::CrossCamConfig& cfg,
     : cfg_(cfg), cameras_(cameras) {}
 
 void IdentityMatcher::register_gallery(const std::string& camera_id,
-                                        const reid::ReidGallery* gallery) {
+                                       const reid::ReidGallery* gallery) {
     galleries_[camera_id] = gallery;
 }
 
@@ -80,9 +80,9 @@ std::vector<std::uint64_t> IdentityMatcher::update(
 
                 if (!transition_allowed_(rec.last_zone, obs.zone)) continue;
 
-                const auto dt_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                                       obs.pts - rec.last_seen)
-                                       .count();
+                const auto dt_ms =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(obs.pts - rec.last_seen)
+                        .count();
                 if (dt_ms < 0) continue;
                 if (static_cast<std::uint32_t>(dt_ms) > cfg_.spatial_overlap_window_ms) continue;
 
@@ -137,8 +137,8 @@ std::vector<std::uint64_t> IdentityMatcher::update(
         globals_[gid] = std::move(rec);
         camera_to_global_[obs.camera_id][obs.local_id] = gid;
         result[idx] = gid;
-        MCT_LOG_DEBUG("crosscam: new global id {} created for cam={} local={}", gid,
-                      obs.camera_id, obs.local_id);
+        MCT_LOG_DEBUG("crosscam: new global id {} created for cam={} local={}", gid, obs.camera_id,
+                      obs.local_id);
     }
 
     return result;

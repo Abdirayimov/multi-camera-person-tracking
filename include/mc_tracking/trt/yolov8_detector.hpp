@@ -1,8 +1,7 @@
 #pragma once
 
-#include <opencv2/core.hpp>
-
 #include <memory>
+#include <opencv2/core.hpp>
 #include <vector>
 
 #include "mc_tracking/config/system_config.hpp"

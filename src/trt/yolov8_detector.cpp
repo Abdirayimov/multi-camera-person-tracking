@@ -1,9 +1,8 @@
 #include "mc_tracking/trt/yolov8_detector.hpp"
 
-#include <opencv2/imgproc.hpp>
-
 #include <algorithm>
 #include <cmath>
+#include <opencv2/imgproc.hpp>
 
 #include "mc_tracking/trt/trt_engine.hpp"
 #include "mc_tracking/utils/cuda_helpers.hpp"
@@ -63,10 +62,9 @@ float iou(const cv::Rect2f& a, const cv::Rect2f& b) {
 }
 
 std::vector<tracker::Detection> nms(std::vector<tracker::Detection> dets, float thresh) {
-    std::sort(dets.begin(), dets.end(),
-              [](const tracker::Detection& a, const tracker::Detection& b) {
-                  return a.score > b.score;
-              });
+    std::sort(
+        dets.begin(), dets.end(),
+        [](const tracker::Detection& a, const tracker::Detection& b) { return a.score > b.score; });
     std::vector<tracker::Detection> kept;
     std::vector<bool> sup(dets.size(), false);
     for (std::size_t i = 0; i < dets.size(); ++i) {
@@ -90,14 +88,14 @@ YOLOv8Detector::YOLOv8Detector(const config::DetectionConfig& cfg)
 YOLOv8Detector::~YOLOv8Detector() = default;
 
 std::vector<tracker::Detection> YOLOv8Detector::detect(const cv::Mat& image) {
-    const auto lb = letterbox(image, static_cast<int>(cfg_.input_width),
-                              static_cast<int>(cfg_.input_height));
+    const auto lb =
+        letterbox(image, static_cast<int>(cfg_.input_width), static_cast<int>(cfg_.input_height));
     hwc_bgr_to_chw_rgb_norm(lb.image, input_scratch_.data());
 
     const std::string input_name = engine_->bindings().front().name;
     utils::CudaStream stream;
-    engine_->copy_input(input_name, input_scratch_.data(),
-                        input_scratch_.size() * sizeof(float), stream.get());
+    engine_->copy_input(input_name, input_scratch_.data(), input_scratch_.size() * sizeof(float),
+                        stream.get());
     engine_->infer(stream.get());
 
     std::string out_name;

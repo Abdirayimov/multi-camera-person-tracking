@@ -18,7 +18,7 @@ namespace mc_tracking::crosscam {
 /// constraints).
 constexpr float INFEASIBLE_COST = std::numeric_limits<float>::infinity();
 
-std::vector<int> solve_assignment(const std::vector<float>& cost_matrix,
-                                  std::size_t rows, std::size_t cols);
+std::vector<int> solve_assignment(const std::vector<float>& cost_matrix, std::size_t rows,
+                                  std::size_t cols);
 
 }  // namespace mc_tracking::crosscam

@@ -10,8 +10,8 @@ namespace mc_tracking::utils {
 
 inline void cuda_check(cudaError_t err, const char* file, int line) {
     if (err != cudaSuccess) {
-        throw std::runtime_error(std::string("CUDA error at ") + file + ":" +
-                                 std::to_string(line) + " - " + cudaGetErrorString(err));
+        throw std::runtime_error(std::string("CUDA error at ") + file + ":" + std::to_string(line) +
+                                 " - " + cudaGetErrorString(err));
     }
 }
 

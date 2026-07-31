@@ -8,8 +8,12 @@ void ReidGallery::push(std::uint64_t local_id, const Embedding& emb) {
     while (d.size() > capacity_) d.pop_front();
 }
 
-void ReidGallery::erase(std::uint64_t local_id) { galleries_.erase(local_id); }
-void ReidGallery::clear() { galleries_.clear(); }
+void ReidGallery::erase(std::uint64_t local_id) {
+    galleries_.erase(local_id);
+}
+void ReidGallery::clear() {
+    galleries_.clear();
+}
 
 float ReidGallery::best_similarity(std::uint64_t local_id, const Embedding& query) const {
     const auto it = galleries_.find(local_id);

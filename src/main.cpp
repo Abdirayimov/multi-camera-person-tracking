@@ -11,14 +11,13 @@
 
 #include <spdlog/spdlog.h>
 
-#include <opencv2/imgcodecs.hpp>
-#include <opencv2/videoio.hpp>
-
 #include <atomic>
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <iostream>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/videoio.hpp>
 #include <string>
 
 #include "mc_tracking/config/system_config.hpp"
@@ -30,13 +29,14 @@
 namespace {
 
 std::atomic<bool> g_shutdown{false};
-void sig(int) { g_shutdown = true; }
+void sig(int) {
+    g_shutdown = true;
+}
 
 void print_usage(const char* argv0) {
-    std::cerr
-        << "Usage: " << argv0 << " --config CONFIG_YAML\n"
-        << "       (--input VIDEO --output ANNOTATED.mp4 |\n"
-        << "        --cameras cameras.yaml --output-dir DIR)\n";
+    std::cerr << "Usage: " << argv0 << " --config CONFIG_YAML\n"
+              << "       (--input VIDEO --output ANNOTATED.mp4 |\n"
+              << "        --cameras cameras.yaml --output-dir DIR)\n";
 }
 
 int run_single(const std::string& config_path, const std::string& input,
@@ -106,9 +106,9 @@ int run_multi(const std::string& config_path, const std::string& cameras_path,
         const int W = static_cast<int>(r.cap->get(cv::CAP_PROP_FRAME_WIDTH));
         const int H = static_cast<int>(r.cap->get(cv::CAP_PROP_FRAME_HEIGHT));
         const double fps = r.cap->get(cv::CAP_PROP_FPS);
-        r.writer = std::make_unique<cv::VideoWriter>(
-            r.output, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
-            (fps > 0.0 ? fps : 25.0), cv::Size(W, H));
+        r.writer =
+            std::make_unique<cv::VideoWriter>(r.output, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                                              (fps > 0.0 ? fps : 25.0), cv::Size(W, H));
         r.pipe = &orch.add_camera(cam.id, cam.zone);
         runners.push_back(std::move(r));
     }
@@ -164,11 +164,16 @@ int main(int argc, char** argv) {
             if (i + 1 >= argc) throw std::invalid_argument(flag + " expects a value");
             return std::string(argv[++i]);
         };
-        if (a == "--config" || a == "-c") config_path = take(a);
-        else if (a == "--input" || a == "-i") input_path = take(a);
-        else if (a == "--output" || a == "-o") output_path = take(a);
-        else if (a == "--cameras") cameras_path = take(a);
-        else if (a == "--output-dir") output_dir = take(a);
+        if (a == "--config" || a == "-c")
+            config_path = take(a);
+        else if (a == "--input" || a == "-i")
+            input_path = take(a);
+        else if (a == "--output" || a == "-o")
+            output_path = take(a);
+        else if (a == "--cameras")
+            cameras_path = take(a);
+        else if (a == "--output-dir")
+            output_dir = take(a);
         else if (a == "--help" || a == "-h") {
             print_usage(argv[0]);
             return EXIT_SUCCESS;

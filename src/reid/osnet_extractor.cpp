@@ -1,10 +1,9 @@
 #include "mc_tracking/reid/osnet_extractor.hpp"
 
-#include <opencv2/imgproc.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <opencv2/imgproc.hpp>
 #include <stdexcept>
 
 #include "mc_tracking/trt/trt_engine.hpp"
@@ -66,8 +65,7 @@ std::vector<Embedding> OSNetExtractor::extract(const std::vector<cv::Mat>& crops
     return out;
 }
 
-void OSNetExtractor::run_chunk_(const std::vector<cv::Mat>& chunk,
-                                std::vector<Embedding>& out) {
+void OSNetExtractor::run_chunk_(const std::vector<cv::Mat>& chunk, std::vector<Embedding>& out) {
     if (chunk.empty()) return;
     const std::int64_t bsz = static_cast<std::int64_t>(chunk.size());
     const std::int64_t in_w = static_cast<std::int64_t>(cfg_.input_width);
@@ -97,8 +95,8 @@ void OSNetExtractor::run_chunk_(const std::vector<cv::Mat>& chunk,
     }
 
     utils::CudaStream stream;
-    engine_->copy_input(input_name, input_scratch_.data(),
-                        chunk.size() * per_img * sizeof(float), stream.get());
+    engine_->copy_input(input_name, input_scratch_.data(), chunk.size() * per_img * sizeof(float),
+                        stream.get());
     engine_->infer(stream.get());
     engine_->copy_output(out_name, output_scratch_.data(),
                          chunk.size() * static_cast<std::size_t>(emb) * sizeof(float),
@@ -114,8 +112,7 @@ void OSNetExtractor::run_chunk_(const std::vector<cv::Mat>& chunk,
     }
 }
 
-std::vector<cv::Mat> crop_persons(const cv::Mat& frame,
-                                  const std::vector<cv::Rect2f>& bboxes) {
+std::vector<cv::Mat> crop_persons(const cv::Mat& frame, const std::vector<cv::Rect2f>& bboxes) {
     std::vector<cv::Mat> out(bboxes.size());
     for (std::size_t i = 0; i < bboxes.size(); ++i) {
         const auto& b = bboxes[i];

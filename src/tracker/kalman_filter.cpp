@@ -2,11 +2,10 @@
 
 namespace mc_tracking::tracker {
 
-KalmanFilter::KalmanFilter() {
+KalmanFilter::KalmanFilter() : transition_matrix_(StateMat::Identity()) {
     // Constant-velocity transition matrix:
     //   [I  I]   <- position += velocity
     //   [0  I]   <- velocity unchanged
-    transition_matrix_ = StateMat::Identity();
     for (int i = 0; i < kMeasDim; ++i) {
         transition_matrix_(i, kMeasDim + i) = 1.0f;
     }

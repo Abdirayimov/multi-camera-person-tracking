@@ -56,10 +56,8 @@ SystemConfig SystemConfig::load(const std::string& yaml_path) {
         if (const auto bt = t["bytetrack"]; bt) {
             out.tracker.bytetrack.high_thresh = optional<float>(bt, "high_thresh", 0.5f);
             out.tracker.bytetrack.low_thresh = optional<float>(bt, "low_thresh", 0.1f);
-            out.tracker.bytetrack.new_track_thresh =
-                optional<float>(bt, "new_track_thresh", 0.6f);
-            out.tracker.bytetrack.track_buffer =
-                optional<std::uint32_t>(bt, "track_buffer", 30);
+            out.tracker.bytetrack.new_track_thresh = optional<float>(bt, "new_track_thresh", 0.6f);
+            out.tracker.bytetrack.track_buffer = optional<std::uint32_t>(bt, "track_buffer", 30);
             out.tracker.bytetrack.match_thresh = optional<float>(bt, "match_thresh", 0.8f);
             out.tracker.bytetrack.aspect_ratio_thresh =
                 optional<float>(bt, "aspect_ratio_thresh", 1.6f);
@@ -71,10 +69,8 @@ SystemConfig SystemConfig::load(const std::string& yaml_path) {
         }
         if (const auto nv = t["nvdcf"]; nv) {
             out.tracker.nvdcf.config_path = optional<std::string>(nv, "config_path", "");
-            out.tracker.nvdcf.tracker_width =
-                optional<std::uint32_t>(nv, "tracker_width", 640);
-            out.tracker.nvdcf.tracker_height =
-                optional<std::uint32_t>(nv, "tracker_height", 384);
+            out.tracker.nvdcf.tracker_width = optional<std::uint32_t>(nv, "tracker_width", 640);
+            out.tracker.nvdcf.tracker_height = optional<std::uint32_t>(nv, "tracker_height", 384);
         }
     }
 
@@ -85,8 +81,7 @@ SystemConfig SystemConfig::load(const std::string& yaml_path) {
         out.reid.input_height = optional<std::uint32_t>(r, "input_height", 256);
         out.reid.embedding_dim = optional<std::uint32_t>(r, "embedding_dim", 256);
         out.reid.batch_size = optional<std::uint32_t>(r, "batch_size", 16);
-        out.reid.gallery_size_per_track =
-            optional<std::uint32_t>(r, "gallery_size_per_track", 8);
+        out.reid.gallery_size_per_track = optional<std::uint32_t>(r, "gallery_size_per_track", 8);
     }
 
     if (const auto c = root["crosscam"]; c) {

@@ -5,7 +5,7 @@
 namespace mc_tracking::pipeline {
 
 SingleCameraPipeline::SingleCameraPipeline(std::string camera_id, std::string zone,
-                                            const config::SystemConfig& cfg)
+                                           const config::SystemConfig& cfg)
     : camera_id_(std::move(camera_id)), zone_(std::move(zone)), cfg_(cfg) {
     detector_ = std::make_unique<trt::YOLOv8Detector>(cfg_.detection);
     tracker_ = tracker::make_tracker(cfg_.tracker);
@@ -16,7 +16,7 @@ SingleCameraPipeline::SingleCameraPipeline(std::string camera_id, std::string zo
 }
 
 CameraFrameResult SingleCameraPipeline::process_frame(std::uint64_t frame_number, TimePoint pts,
-                                                       const cv::Mat& frame) {
+                                                      const cv::Mat& frame) {
     CameraFrameResult result;
     result.camera_id = camera_id_;
     result.frame_number = frame_number;

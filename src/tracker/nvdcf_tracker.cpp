@@ -11,13 +11,13 @@ struct NvDcfTracker::Impl {
     std::vector<Track> latest;  ///< most recent ingest from DeepStream
 };
 
-NvDcfTracker::NvDcfTracker(const config::NvDcfParams& params)
-    : impl_(std::make_unique<Impl>()) {
+NvDcfTracker::NvDcfTracker(const config::NvDcfParams& params) : impl_(std::make_unique<Impl>()) {
     impl_->params = params;
-    MCT_LOG_INFO("NvDcfTracker: this backend is a thin wrapper over DeepStream's "
-                 "libnvds_nvmultiobjecttracker.so; use the DeepStream pipeline path "
-                 "for actual tracker behaviour. config_path={}",
-                 params.config_path);
+    MCT_LOG_INFO(
+        "NvDcfTracker: this backend is a thin wrapper over DeepStream's "
+        "libnvds_nvmultiobjecttracker.so; use the DeepStream pipeline path "
+        "for actual tracker behaviour. config_path={}",
+        params.config_path);
 }
 
 NvDcfTracker::~NvDcfTracker() = default;
@@ -32,6 +32,8 @@ std::vector<Track> NvDcfTracker::update(const std::vector<Detection>& /*detectio
     return impl_->latest;
 }
 
-void NvDcfTracker::reset() { impl_->latest.clear(); }
+void NvDcfTracker::reset() {
+    impl_->latest.clear();
+}
 
 }  // namespace mc_tracking::tracker

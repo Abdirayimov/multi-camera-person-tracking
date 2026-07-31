@@ -41,9 +41,9 @@ public:
 
 private:
     config::ByteTrackParams params_;
-    std::vector<std::unique_ptr<ByteTrackState>> tracked_;       ///< Confirmed active tracks
-    std::vector<std::unique_ptr<ByteTrackState>> lost_;          ///< Awaiting reacquisition
-    std::vector<std::unique_ptr<ByteTrackState>> removed_;       ///< Past max_age, kept for one frame
+    std::vector<std::unique_ptr<ByteTrackState>> tracked_;  ///< Confirmed active tracks
+    std::vector<std::unique_ptr<ByteTrackState>> lost_;     ///< Awaiting reacquisition
+    std::vector<std::unique_ptr<ByteTrackState>> removed_;  ///< Past max_age, kept for one frame
     std::uint64_t next_id_ = 1;
     std::uint32_t frame_id_ = 0;
 

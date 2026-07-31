@@ -1,9 +1,8 @@
 #pragma once
 
 #include <Eigen/Core>
-#include <opencv2/core.hpp>
-
 #include <memory>
+#include <opencv2/core.hpp>
 #include <vector>
 
 #include "mc_tracking/config/system_config.hpp"
@@ -51,7 +50,6 @@ private:
 /// Bboxes are clipped to the image bounds; degenerate (zero-area)
 /// crops are silently skipped and the corresponding output entry is
 /// left default-constructed.
-std::vector<cv::Mat> crop_persons(const cv::Mat& frame,
-                                  const std::vector<cv::Rect2f>& bboxes);
+std::vector<cv::Mat> crop_persons(const cv::Mat& frame, const std::vector<cv::Rect2f>& bboxes);
 
 }  // namespace mc_tracking::reid

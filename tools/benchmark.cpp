@@ -3,13 +3,12 @@
 
 #include <spdlog/spdlog.h>
 
-#include <opencv2/core.hpp>
-
 #include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <opencv2/core.hpp>
 #include <random>
 #include <string>
 #include <vector>

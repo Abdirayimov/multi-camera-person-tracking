@@ -24,10 +24,8 @@ float iou(const cv::Rect2f& a, const cv::Rect2f& b) {
 /// Build a (1 - IoU) cost matrix; cells above `match_thresh` are
 /// flagged as infeasible so the assignment solver can leave them out.
 std::vector<float> build_iou_cost(const std::vector<ByteTrackState*>& tracks,
-                                  const std::vector<Detection>& detections,
-                                  float match_thresh) {
-    std::vector<float> cost(tracks.size() * detections.size(),
-                            crosscam::INFEASIBLE_COST);
+                                  const std::vector<Detection>& detections, float match_thresh) {
+    std::vector<float> cost(tracks.size() * detections.size(), crosscam::INFEASIBLE_COST);
     for (std::size_t i = 0; i < tracks.size(); ++i) {
         for (std::size_t j = 0; j < detections.size(); ++j) {
             const float v = iou(tracks[i]->bbox, detections[j].bbox);
@@ -53,19 +51,18 @@ void ByteTrack::reset() {
 }
 
 void ByteTrack::predict_all_() {
-    for (auto& t : tracked_) t->kalman.predict();
-    for (auto& t : lost_) t->kalman.predict();
+    for (const auto& t : tracked_) t->kalman.predict();
+    for (const auto& t : lost_) t->kalman.predict();
 }
 
 void ByteTrack::prune_aspect_ratio_(std::vector<Detection>& detections) const {
-    detections.erase(
-        std::remove_if(detections.begin(), detections.end(),
-                       [&](const Detection& d) {
-                           if (d.bbox.height <= 0.0f) return true;
-                           const float aspect = d.bbox.width / d.bbox.height;
-                           return aspect > params_.aspect_ratio_thresh;
-                       }),
-        detections.end());
+    detections.erase(std::remove_if(detections.begin(), detections.end(),
+                                    [&](const Detection& d) {
+                                        if (d.bbox.height <= 0.0f) return true;
+                                        const float aspect = d.bbox.width / d.bbox.height;
+                                        return aspect > params_.aspect_ratio_thresh;
+                                    }),
+                     detections.end());
 }
 
 std::vector<Track> ByteTrack::update(const std::vector<Detection>& detections_in) {
@@ -187,13 +184,7 @@ std::vector<Track> ByteTrack::update(const std::vector<Detection>& detections_in
             }
         }
     };
-    // Tag all unmatched tracks with time_since_update bump first.
-    for (auto& t : tracked_) {
-        if (t->time_since_update == 0 && matched_pool.count(0) == 0) {
-            // No-op marker: time_since_update bump is handled below.
-        }
-    }
-    // For simplicity we bump time_since_update on any unmatched track.
+    // Bump time_since_update on any track neither association stage refreshed.
     for (std::size_t i = 0; i < tracked_.size(); ++i) {
         // Track is unmatched if its state was not refreshed by either
         // association stage. We detect that by checking the timestamp.

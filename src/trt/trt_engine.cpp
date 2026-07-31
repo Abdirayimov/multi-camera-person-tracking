@@ -2,7 +2,6 @@
 
 #include <NvInfer.h>
 #include <cuda_runtime.h>
-
 #include <spdlog/spdlog.h>
 
 #include <fstream>
@@ -20,10 +19,18 @@ public:
     void log(Severity severity, const char* msg) noexcept override {
         switch (severity) {
             case Severity::kINTERNAL_ERROR:
-            case Severity::kERROR: SPDLOG_ERROR("[TRT] {}", msg); break;
-            case Severity::kWARNING: SPDLOG_WARN("[TRT] {}", msg); break;
-            case Severity::kINFO:    SPDLOG_DEBUG("[TRT] {}", msg); break;
-            case Severity::kVERBOSE: SPDLOG_TRACE("[TRT] {}", msg); break;
+            case Severity::kERROR:
+                SPDLOG_ERROR("[TRT] {}", msg);
+                break;
+            case Severity::kWARNING:
+                SPDLOG_WARN("[TRT] {}", msg);
+                break;
+            case Severity::kINFO:
+                SPDLOG_DEBUG("[TRT] {}", msg);
+                break;
+            case Severity::kVERBOSE:
+                SPDLOG_TRACE("[TRT] {}", msg);
+                break;
         }
     }
 };
@@ -35,14 +42,22 @@ TrtLogger& global_trt_logger() {
 
 std::size_t element_size_for(nvinfer1::DataType dt) {
     switch (dt) {
-        case nvinfer1::DataType::kFLOAT: return 4;
-        case nvinfer1::DataType::kHALF:  return 2;
-        case nvinfer1::DataType::kINT8:  return 1;
-        case nvinfer1::DataType::kINT32: return 4;
-        case nvinfer1::DataType::kBOOL:  return 1;
-        case nvinfer1::DataType::kUINT8: return 1;
-        case nvinfer1::DataType::kFP8:   return 1;
-        default: return 0;
+        case nvinfer1::DataType::kFLOAT:
+            return 4;
+        case nvinfer1::DataType::kHALF:
+            return 2;
+        case nvinfer1::DataType::kINT8:
+            return 1;
+        case nvinfer1::DataType::kINT32:
+            return 4;
+        case nvinfer1::DataType::kBOOL:
+            return 1;
+        case nvinfer1::DataType::kUINT8:
+            return 1;
+        case nvinfer1::DataType::kFP8:
+            return 1;
+        default:
+            return 0;
     }
 }
 
@@ -75,7 +90,8 @@ TrtEngine::TrtEngine(const std::string& engine_path) : impl_(std::make_unique<Im
     impl_->runtime.reset(nvinfer1::createInferRuntime(global_trt_logger()));
     if (!impl_->runtime) throw std::runtime_error("createInferRuntime failed");
     impl_->engine.reset(impl_->runtime->deserializeCudaEngine(blob.data(), blob.size()));
-    if (!impl_->engine) throw std::runtime_error("failed to deserialize TRT engine: " + engine_path);
+    if (!impl_->engine)
+        throw std::runtime_error("failed to deserialize TRT engine: " + engine_path);
     impl_->context.reset(impl_->engine->createExecutionContext());
     if (!impl_->context) throw std::runtime_error("failed to create TRT execution context");
 
@@ -118,8 +134,7 @@ TrtEngine::~TrtEngine() {
 TrtEngine::TrtEngine(TrtEngine&&) noexcept = default;
 TrtEngine& TrtEngine::operator=(TrtEngine&&) noexcept = default;
 
-void TrtEngine::set_input_shape(const std::string& name,
-                                const std::vector<std::int64_t>& shape) {
+void TrtEngine::set_input_shape(const std::string& name, const std::vector<std::int64_t>& shape) {
     nvinfer1::Dims dims;
     dims.nbDims = static_cast<std::int32_t>(shape.size());
     for (std::size_t i = 0; i < shape.size(); ++i) dims.d[i] = shape[i];

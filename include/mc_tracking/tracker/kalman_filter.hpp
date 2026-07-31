@@ -2,7 +2,6 @@
 
 #include <Eigen/Core>
 #include <Eigen/Dense>
-
 #include <opencv2/core.hpp>
 
 namespace mc_tracking::tracker {

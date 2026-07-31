@@ -15,11 +15,10 @@
 
 #include <spdlog/spdlog.h>
 
-#include <opencv2/imgproc.hpp>
-#include <opencv2/videoio.hpp>
-
 #include <chrono>
 #include <cstdlib>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/videoio.hpp>
 #include <string>
 #include <vector>
 
@@ -36,10 +35,14 @@ int main(int argc, char** argv) {
             if (i + 1 >= argc) throw std::invalid_argument(flag + " expects a value");
             return std::string(argv[++i]);
         };
-        if (a == "--config") config_path = take(a);
-        else if (a == "--cameras") cameras_path = take(a);
-        else if (a == "--input") input = take(a);
-        else if (a == "--output") output = take(a);
+        if (a == "--config")
+            config_path = take(a);
+        else if (a == "--cameras")
+            cameras_path = take(a);
+        else if (a == "--input")
+            input = take(a);
+        else if (a == "--output")
+            output = take(a);
         else if (a == "--help" || a == "-h") {
             std::cerr << "Usage: " << argv[0]
                       << " --config CFG --cameras CAMS --input VIDEO --output OUT\n";
@@ -92,10 +95,10 @@ int main(int argc, char** argv) {
             canvas.setTo(cv::Scalar(40, 40, 40));
             left.copyTo(canvas(cv::Rect(0, 0, halfW, H)));
             right.copyTo(canvas(cv::Rect(halfW + divider, 0, W - halfW, H)));
-            cv::line(canvas, cv::Point(halfW + divider / 2, 0),
-                     cv::Point(halfW + divider / 2, H), cv::Scalar(80, 80, 80), 1);
-            cv::putText(canvas, "cam-01 (left)", cv::Point(8, H - 12),
-                        cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(230, 230, 230), 1);
+            cv::line(canvas, cv::Point(halfW + divider / 2, 0), cv::Point(halfW + divider / 2, H),
+                     cv::Scalar(80, 80, 80), 1);
+            cv::putText(canvas, "cam-01 (left)", cv::Point(8, H - 12), cv::FONT_HERSHEY_SIMPLEX,
+                        0.5, cv::Scalar(230, 230, 230), 1);
             cv::putText(canvas, "cam-02 (right)", cv::Point(halfW + divider + 8, H - 12),
                         cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(230, 230, 230), 1);
             writer.write(canvas);
