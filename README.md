@@ -281,11 +281,37 @@ upstream.
       multiple processes
 - [ ] Trajectory output (parquet) for downstream analytics
 
+## Tests
+
+The algorithmic stages sit in an `mc_tracking_core` target that links
+only OpenCV, Eigen, spdlog and yaml-cpp, so the test suite builds on a
+machine with no NVIDIA stack at all:
+
+```bash
+cmake -S . -B build-tests -G Ninja \
+      -DMCT_CPU_ONLY=ON \
+      -DMCT_BUILD_TESTS=ON
+cmake --build build-tests -j
+ctest --test-dir build-tests --output-on-failure
+```
+
+113 tests cover the Hungarian assignment solver, the constant-velocity
+Kalman filter, both CPU trackers (id stability, occlusion recovery,
+eviction), the ReID gallery, the cross-camera identity matcher (zone
+gating, the spatial-temporal window, one-to-one assignment) and config
+validation. GoogleTest is fetched at configure time (pinned to
+`v1.14.0`).
+
+The GPU stages — TensorRT engine wrapper, YOLO detector, OSNet
+extractor, DeepStream pipeline — are not unit tested; they need a device
+and a serialized engine.
+
 ## CI
 
-CI runs clang-format and cppcheck over the tree. **The CUDA / TensorRT /
-DeepStream build is not exercised on GitHub runners** — they carry none
-of those SDKs. Build it locally or through the provided Docker image.
+CI runs clang-format, cppcheck and the CPU-only unit tests. **The CUDA /
+TensorRT / DeepStream build is not exercised on GitHub runners** — they
+carry none of those SDKs. Build it locally or through the provided
+Docker image.
 
 ## License
 

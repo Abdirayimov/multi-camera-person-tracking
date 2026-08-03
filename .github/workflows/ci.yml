@@ -10,8 +10,9 @@ permissions:
   contents: read
 
 # GitHub-hosted runners carry no CUDA, TensorRT or DeepStream, so the full
-# build cannot run here. CI covers what it honestly can: formatting and
-# static analysis. Build the pipeline locally or through docker/Dockerfile.
+# build cannot run here. CI covers what it honestly can: formatting, static
+# analysis, and the CPU-only algorithmic core with its unit tests. Build the
+# GPU pipeline locally or through docker/Dockerfile.
 
 jobs:
   format:
@@ -51,3 +52,29 @@ jobs:
                    --suppress=useStlAlgorithm \
                    --std=c++17 \
                    src include tools
+
+  unit-tests:
+    name: CPU-only unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake ninja-build \
+            libeigen3-dev libyaml-cpp-dev libopencv-dev libspdlog-dev
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DMCT_CPU_ONLY=ON \
+                -DMCT_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build -j
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
