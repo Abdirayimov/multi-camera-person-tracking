@@ -1,0 +1,7 @@
+# Only the required detector engine path; everything else must fall back
+# to the documented defaults.
+detection:
+  engine_path: "models/engines/detector.engine"
+
+reid:
+  enabled: false

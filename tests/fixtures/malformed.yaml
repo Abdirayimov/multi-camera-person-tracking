@@ -1,0 +1,3 @@
+detection:
+  engine_path: "models/engines/detector.engine"
+   input_width: [640

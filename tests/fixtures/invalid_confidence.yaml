@@ -1,0 +1,7 @@
+# Detector scores are probabilities; 1.5 rejects every box.
+detection:
+  engine_path: "models/engines/detector.engine"
+  confidence_threshold: 1.5
+
+reid:
+  enabled: false

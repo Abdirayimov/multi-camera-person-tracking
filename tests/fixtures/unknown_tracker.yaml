@@ -1,0 +1,8 @@
+detection:
+  engine_path: "models/engines/detector.engine"
+
+tracker:
+  type: "deepsort"
+
+reid:
+  enabled: false

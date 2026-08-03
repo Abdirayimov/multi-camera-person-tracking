@@ -1,0 +1,51 @@
+# Every field explicitly set, so the parser has nothing to default.
+pipeline:
+  muxer_width: 1920
+  muxer_height: 1080
+  batch_size: 4
+  emit_overlay: false
+
+detection:
+  engine_path: "models/engines/yolo11x_person_fp16.engine"
+  input_width: 1280
+  input_height: 1280
+  confidence_threshold: 0.35
+  nms_iou_threshold: 0.6
+  person_class_id: 0
+
+tracker:
+  type: "iou"
+  bytetrack:
+    high_thresh: 0.55
+    low_thresh: 0.15
+    new_track_thresh: 0.65
+    track_buffer: 45
+    match_thresh: 0.75
+    aspect_ratio_thresh: 1.8
+  iou:
+    iou_thresh: 0.4
+    max_age: 20
+    min_hits: 2
+  nvdcf:
+    config_path: "configs/tracker_nvdcf.yml"
+    tracker_width: 960
+    tracker_height: 544
+
+reid:
+  enabled: true
+  engine_path: "models/engines/osnet_fp16.engine"
+  input_width: 128
+  input_height: 256
+  embedding_dim: 512
+  batch_size: 32
+  gallery_size_per_track: 12
+
+crosscam:
+  enabled: false
+  reid_threshold: 0.8
+  spatial_overlap_window_ms: 2500
+  hungarian_cost_cap: 0.25
+
+logging:
+  level: "debug"
+  json: false

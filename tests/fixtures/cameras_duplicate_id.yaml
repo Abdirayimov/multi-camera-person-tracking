@@ -1,0 +1,7 @@
+cameras:
+  - id: "cam_hall"
+    uri: "file://a.mp4"
+    zone: "hall"
+  - id: "cam_hall"
+    uri: "file://b.mp4"
+    zone: "lobby"

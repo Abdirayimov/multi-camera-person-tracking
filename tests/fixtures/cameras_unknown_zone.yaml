@@ -1,0 +1,10 @@
+# 'roof' is not a zone any declared camera sits in, so this transition
+# can never fire.
+cameras:
+  - id: "cam_hall"
+    uri: "file://hall.mp4"
+    zone: "hall"
+
+transitions:
+  - from: "hall"
+    to: "roof"

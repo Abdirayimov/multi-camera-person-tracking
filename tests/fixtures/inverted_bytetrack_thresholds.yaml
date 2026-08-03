@@ -1,0 +1,13 @@
+# low_thresh above high_thresh leaves the second association stage with
+# no detections to work with.
+detection:
+  engine_path: "models/engines/detector.engine"
+
+tracker:
+  type: "bytetrack"
+  bytetrack:
+    high_thresh: 0.3
+    low_thresh: 0.8
+
+reid:
+  enabled: false

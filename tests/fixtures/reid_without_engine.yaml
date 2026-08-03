@@ -1,0 +1,5 @@
+detection:
+  engine_path: "models/engines/detector.engine"
+
+reid:
+  enabled: true

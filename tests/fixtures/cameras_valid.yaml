@@ -1,0 +1,13 @@
+cameras:
+  - id: "cam_hall"
+    uri: "file://hall.mp4"
+    zone: "hall"
+  - id: "cam_lobby"
+    uri: "file://lobby.mp4"
+    zone: "lobby"
+
+transitions:
+  - from: "hall"
+    to: "lobby"
+  - from: "lobby"
+    to: "hall"
