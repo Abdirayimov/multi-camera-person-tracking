@@ -15,15 +15,36 @@ endif()
 
 option(BUILD_TOOLS "Build CLI tools" ON)
 option(BUILD_DEEPSTREAM "Build the DeepStream pipeline (requires NvDCF + libgstreamer)" ON)
-option(BUILD_TESTS "Build unit tests" OFF)
+option(MCT_BUILD_TESTS "Build the GoogleTest unit test suite" OFF)
+option(MCT_CPU_ONLY
+       "Build only the CPU-only algorithmic core (no CUDA / TensorRT / DeepStream)" OFF)
+
+# Accepted for backwards compatibility with pre-0.2 build scripts.
+if(BUILD_TESTS AND NOT MCT_BUILD_TESTS)
+    message(WARNING "BUILD_TESTS is deprecated; use MCT_BUILD_TESTS")
+    set(MCT_BUILD_TESTS ON)
+endif()
+
+if(MCT_CPU_ONLY)
+    # The GPU stages have no meaning without their SDKs; turn them off
+    # rather than letting find_package fail late.
+    set(BUILD_TOOLS OFF)
+    set(BUILD_DEEPSTREAM OFF)
+endif()
 
 # ---- Dependencies ----
-find_package(CUDAToolkit 12.0 REQUIRED)
-find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs videoio)
+# The algorithmic core needs only these four; the rest are GPU stages and
+# are looked up separately below.
+find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc)
 find_package(Eigen3 3.4 REQUIRED NO_MODULE)
 find_package(spdlog REQUIRED)
 find_package(yaml-cpp REQUIRED)
-find_package(TensorRT REQUIRED)
+
+if(NOT MCT_CPU_ONLY)
+    find_package(CUDAToolkit 12.0 REQUIRED)
+    find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs videoio)
+    find_package(TensorRT REQUIRED)
+endif()
 
 if(BUILD_DEEPSTREAM)
     find_package(PkgConfig REQUIRED)
@@ -40,7 +61,39 @@ if(BUILD_DEEPSTREAM)
     endif()
 endif()
 
-# ---- Library: mc_tracking (static) ----
+# ---- Library: mc_tracking_core (static, CPU only) ----
+# Config parsing, the Kalman filter, both CPU trackers, the Hungarian
+# solver, the ReID gallery and the cross-camera matcher are pure CPU work.
+# Keeping them in their own target lets the unit tests -- and CI runners
+# without an NVIDIA stack -- build them without CUDA or TensorRT.
+add_library(mc_tracking_core STATIC
+    src/config/system_config.cpp
+    src/utils/logger.cpp
+    src/tracker/kalman_filter.cpp
+    src/tracker/iou_tracker.cpp
+    src/tracker/bytetrack.cpp
+    src/tracker/tracker_factory.cpp
+    src/crosscam/hungarian.cpp
+    src/crosscam/identity_matcher.cpp
+    src/reid/reid_gallery.cpp
+)
+target_include_directories(mc_tracking_core
+    PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
+        ${OpenCV_INCLUDE_DIRS}
+)
+target_link_libraries(mc_tracking_core
+    PUBLIC
+        opencv_core
+        opencv_imgproc
+        Eigen3::Eigen
+        spdlog::spdlog
+        yaml-cpp::yaml-cpp
+)
+set_target_properties(mc_tracking_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# ---- Library: mc_tracking (static, GPU stages) ----
+if(NOT MCT_CPU_ONLY)
 file(GLOB_RECURSE MCT_SOURCES
     "${CMAKE_SOURCE_DIR}/src/config/*.cpp"
     "${CMAKE_SOURCE_DIR}/src/utils/*.cpp"
@@ -51,6 +104,13 @@ file(GLOB_RECURSE MCT_SOURCES
     "${CMAKE_SOURCE_DIR}/src/pipeline/*.cpp"
     "${CMAKE_SOURCE_DIR}/src/overlay/*.cpp"
 )
+
+# Already compiled into mc_tracking_core.
+foreach(core_src
+        system_config logger kalman_filter iou_tracker bytetrack
+        hungarian identity_matcher reid_gallery tracker_factory)
+    list(FILTER MCT_SOURCES EXCLUDE REGEX "${core_src}\\.cpp$")
+endforeach()
 
 if(NOT BUILD_DEEPSTREAM)
     list(FILTER MCT_SOURCES EXCLUDE REGEX "deepstream_pipeline\\.cpp$")
@@ -66,6 +126,7 @@ target_include_directories(mc_tracking
 )
 target_link_libraries(mc_tracking
     PUBLIC
+        mc_tracking_core
         CUDA::cudart
         CUDA::cuda_driver
         ${OpenCV_LIBS}
@@ -89,6 +150,7 @@ set_target_properties(mc_tracking PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # ---- Executable: mc_tracking_video (offline OpenCV driver) ----
 add_executable(mc_tracking_video src/main.cpp)
 target_link_libraries(mc_tracking_video PRIVATE mc_tracking)
+endif()
 
 if(BUILD_TOOLS)
     add_executable(mc_tracking_benchmark tools/benchmark.cpp)
@@ -100,12 +162,14 @@ if(BUILD_TOOLS)
     target_link_libraries(crosscam_split_demo PRIVATE mc_tracking)
 endif()
 
-if(BUILD_TESTS)
+if(MCT_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
 
-install(TARGETS mc_tracking_video RUNTIME DESTINATION bin)
+if(TARGET mc_tracking_video)
+    install(TARGETS mc_tracking_video RUNTIME DESTINATION bin)
+endif()
 if(BUILD_TOOLS)
     install(TARGETS mc_tracking_benchmark RUNTIME DESTINATION bin)
 endif()
@@ -115,10 +179,13 @@ message(STATUS "")
 message(STATUS "mc_tracking ${PROJECT_VERSION} configuration:")
 message(STATUS "  Build type:       ${CMAKE_BUILD_TYPE}")
 message(STATUS "  C++ standard:     ${CMAKE_CXX_STANDARD}")
-message(STATUS "  CUDA:             ${CUDAToolkit_VERSION}")
+message(STATUS "  CPU-only:         ${MCT_CPU_ONLY}")
+if(NOT MCT_CPU_ONLY)
+    message(STATUS "  CUDA:             ${CUDAToolkit_VERSION}")
+    message(STATUS "  TensorRT:         ${TensorRT_VERSION}")
+endif()
 message(STATUS "  OpenCV:           ${OpenCV_VERSION}")
-message(STATUS "  TensorRT:         ${TensorRT_VERSION}")
 message(STATUS "  DeepStream path:  ${BUILD_DEEPSTREAM}")
 message(STATUS "  Build tools:      ${BUILD_TOOLS}")
-message(STATUS "  Build tests:      ${BUILD_TESTS}")
+message(STATUS "  Build tests:      ${MCT_BUILD_TESTS}")
 message(STATUS "")
