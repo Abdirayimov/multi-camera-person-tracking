@@ -103,8 +103,11 @@ std::vector<Track> ByteTrack::update(const std::vector<Detection>& detections_in
         match1.assign(stage1_pool.size(), -1);
     }
 
+    // Which tracks a detection refreshed this frame. Keyed by pointer
+    // rather than by index: `tracked_` and `lost_` are both reshuffled
+    // below, so any index captured here would not survive.
     std::unordered_set<std::size_t> matched_high;
-    std::unordered_set<std::size_t> matched_pool;
+    std::unordered_set<const ByteTrackState*> refreshed;
     for (std::size_t i = 0; i < match1.size(); ++i) {
         if (match1[i] < 0) continue;
         auto* track = stage1_pool[i];
@@ -115,21 +118,30 @@ std::vector<Track> ByteTrack::update(const std::vector<Detection>& detections_in
         track->time_since_update = 0;
         track->hit_streak += 1;
         track->age += 1;
-        if (track->state == TrackState::Tentative) {
-            track->state = TrackState::Confirmed;
-        } else if (track->state == TrackState::Lost) {
+        if (track->state == TrackState::Tentative || track->state == TrackState::Lost) {
             track->state = TrackState::Confirmed;
         }
         matched_high.insert(static_cast<std::size_t>(match1[i]));
-        matched_pool.insert(i);
+        refreshed.insert(track);
     }
 
-    // Second-stage association: remaining tracked tracks vs low
+    // Reacquired tracks return to the active pool. Only `tracked_` is
+    // emitted, so a track left behind in `lost_` would keep a Confirmed
+    // state that no consumer ever sees.
+    for (auto it = lost_.begin(); it != lost_.end();) {
+        if (refreshed.count(it->get()) != 0) {
+            tracked_.push_back(std::move(*it));
+            it = lost_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // Second-stage association: still-unmatched active tracks vs low
     // confidence detections.
     std::vector<ByteTrackState*> stage2_pool;
-    for (std::size_t i = 0; i < tracked_.size(); ++i) {
-        // tracked tracks live at indices [0, tracked_.size()) of stage1_pool
-        if (matched_pool.count(i) == 0) stage2_pool.push_back(tracked_[i].get());
+    for (const auto& t : tracked_) {
+        if (refreshed.count(t.get()) == 0) stage2_pool.push_back(t.get());
     }
     if (!stage2_pool.empty() && !low.empty()) {
         const auto cost = build_iou_cost(stage2_pool, low, 0.5f);
@@ -144,11 +156,13 @@ std::vector<Track> ByteTrack::update(const std::vector<Detection>& detections_in
             track->time_since_update = 0;
             track->hit_streak += 1;
             track->age += 1;
+            refreshed.insert(track);
         }
     }
 
     // Promote unmatched-but-fresh-enough high detections into new
-    // tentative tracks.
+    // tentative tracks. A new track counts as refreshed: it must not be
+    // aged out on the very frame it was created.
     for (std::size_t j = 0; j < high.size(); ++j) {
         if (matched_high.count(j)) continue;
         if (high[j].score < params_.new_track_thresh) continue;
@@ -161,41 +175,24 @@ std::vector<Track> ByteTrack::update(const std::vector<Detection>& detections_in
         state->age = 1;
         state->start_frame = frame_id_;
         state->kalman.initiate(bbox_to_measurement(high[j].bbox));
+        refreshed.insert(state.get());
         tracked_.push_back(std::move(state));
     }
 
-    // Move tracks that did not get an update this frame to the lost
-    // pool; remove tracks that have been lost for too long.
-    auto move_to_lost = [&](std::vector<std::unique_ptr<ByteTrackState>>& src) {
-        for (auto it = src.begin(); it != src.end();) {
-            if ((*it)->time_since_update > 0) {
-                ++(*it)->time_since_update;
-            } else {
-                ++it;
-                continue;
-            }
-            if ((*it)->time_since_update > params_.track_buffer) {
-                removed_.push_back(std::move(*it));
-                it = src.erase(it);
-            } else {
-                (*it)->state = TrackState::Lost;
-                lost_.push_back(std::move(*it));
-                it = src.erase(it);
-            }
+    // Active tracks that no detection refreshed drop into the lost pool.
+    for (auto it = tracked_.begin(); it != tracked_.end();) {
+        if (refreshed.count(it->get()) != 0) {
+            ++it;
+            continue;
         }
-    };
-    // Bump time_since_update on any track neither association stage refreshed.
-    for (std::size_t i = 0; i < tracked_.size(); ++i) {
-        // Track is unmatched if its state was not refreshed by either
-        // association stage. We detect that by checking the timestamp.
-        if (tracked_[i]->time_since_update == 0 && matched_pool.count(i) == 0) {
-            tracked_[i]->time_since_update = 1;
-            tracked_[i]->state = TrackState::Lost;
-        }
+        (*it)->state = TrackState::Lost;
+        (*it)->hit_streak = 0;
+        lost_.push_back(std::move(*it));
+        it = tracked_.erase(it);
     }
-    move_to_lost(tracked_);
 
-    // Lost pool ages out the same way.
+    // Ageing happens in exactly one place, over the whole lost pool, so a
+    // track demoted this frame is counted once rather than twice.
     for (auto it = lost_.begin(); it != lost_.end();) {
         ++(*it)->time_since_update;
         ++(*it)->age;
