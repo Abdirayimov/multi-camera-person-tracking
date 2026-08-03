@@ -86,7 +86,17 @@ struct SystemConfig {
     CrossCamConfig crosscam;
     LoggingConfig logging;
 
+    /// Load from YAML.
+    ///
+    /// @throws std::runtime_error if the file is missing, fails to parse,
+    ///         omits a required field, or carries an out-of-range value.
     static SystemConfig load(const std::string& yaml_path);
+
+    /// Check every field for internal consistency. Called by `load`;
+    /// exposed for callers that assemble a config programmatically.
+    ///
+    /// @throws std::runtime_error naming the offending key and its bounds.
+    void validate() const;
 };
 
 struct CameraEntry {
@@ -113,6 +123,12 @@ struct CamerasConfig {
     bool transition_allowed(const std::string& from_zone, const std::string& to_zone) const;
 
     static CamerasConfig load(const std::string& yaml_path);
+
+    /// Reject duplicate camera ids, empty ids/uris, and transitions that
+    /// reference a zone no declared camera sits in.
+    ///
+    /// @throws std::runtime_error naming the offending entry.
+    void validate() const;
 };
 
 }  // namespace mc_tracking::config

@@ -2,12 +2,37 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <filesystem>
+#include <set>
 #include <stdexcept>
 #include <string>
 
 namespace mc_tracking::config {
 
 namespace {
+
+void require_positive(std::uint32_t value, const char* key) {
+    if (value == 0) {
+        throw std::runtime_error(std::string("config: ") + key + " must be greater than zero");
+    }
+}
+
+void require_in_range(float value, float lo, float hi, const char* key) {
+    if (!(value >= lo && value <= hi)) {
+        throw std::runtime_error(std::string("config: ") + key + " must be in [" +
+                                 std::to_string(lo) + ", " + std::to_string(hi) + "], got " +
+                                 std::to_string(value));
+    }
+}
+
+/// Both loaders report a missing file by path rather than letting a bare
+/// yaml-cpp BadFile escape.
+void require_readable(const std::string& path) {
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec)) {
+        throw std::runtime_error("config file not found: " + path);
+    }
+}
 
 template <typename T>
 T require(const YAML::Node& node, const std::string& key) {
@@ -29,7 +54,56 @@ TrackerType parse_tracker(const std::string& s) {
 
 }  // namespace
 
+void SystemConfig::validate() const {
+    require_positive(pipeline.muxer_width, "pipeline.muxer_width");
+    require_positive(pipeline.muxer_height, "pipeline.muxer_height");
+    require_positive(pipeline.batch_size, "pipeline.batch_size");
+
+    if (detection.engine_path.empty()) {
+        throw std::runtime_error("config: detection.engine_path must not be empty");
+    }
+    require_positive(detection.input_width, "detection.input_width");
+    require_positive(detection.input_height, "detection.input_height");
+    require_in_range(detection.confidence_threshold, 0.0f, 1.0f, "detection.confidence_threshold");
+    require_in_range(detection.nms_iou_threshold, 0.0f, 1.0f, "detection.nms_iou_threshold");
+    if (detection.person_class_id < 0) {
+        throw std::runtime_error("config: detection.person_class_id must not be negative");
+    }
+
+    require_in_range(tracker.bytetrack.high_thresh, 0.0f, 1.0f, "tracker.bytetrack.high_thresh");
+    require_in_range(tracker.bytetrack.low_thresh, 0.0f, 1.0f, "tracker.bytetrack.low_thresh");
+    if (tracker.bytetrack.low_thresh > tracker.bytetrack.high_thresh) {
+        throw std::runtime_error(
+            "config: tracker.bytetrack.low_thresh must not exceed high_thresh — the two-stage "
+            "cascade would have no low-confidence band to work with");
+    }
+    require_in_range(tracker.bytetrack.new_track_thresh, 0.0f, 1.0f,
+                     "tracker.bytetrack.new_track_thresh");
+    require_in_range(tracker.bytetrack.match_thresh, 0.0f, 1.0f, "tracker.bytetrack.match_thresh");
+    require_positive(tracker.bytetrack.track_buffer, "tracker.bytetrack.track_buffer");
+    require_in_range(tracker.iou.iou_thresh, 0.0f, 1.0f, "tracker.iou.iou_thresh");
+    require_positive(tracker.iou.max_age, "tracker.iou.max_age");
+    require_positive(tracker.iou.min_hits, "tracker.iou.min_hits");
+
+    if (reid.enabled) {
+        if (reid.engine_path.empty()) {
+            throw std::runtime_error("config: reid.engine_path must not be empty when reid is on");
+        }
+        require_positive(reid.input_width, "reid.input_width");
+        require_positive(reid.input_height, "reid.input_height");
+        require_positive(reid.embedding_dim, "reid.embedding_dim");
+        require_positive(reid.batch_size, "reid.batch_size");
+        require_positive(reid.gallery_size_per_track, "reid.gallery_size_per_track");
+    }
+
+    // Cosine similarity of unit-norm embeddings is bounded by [-1, 1], and
+    // the Hungarian cost is 1 - similarity.
+    require_in_range(crosscam.reid_threshold, -1.0f, 1.0f, "crosscam.reid_threshold");
+    require_in_range(crosscam.hungarian_cost_cap, 0.0f, 2.0f, "crosscam.hungarian_cost_cap");
+}
+
 SystemConfig SystemConfig::load(const std::string& yaml_path) {
+    require_readable(yaml_path);
     const YAML::Node root = YAML::LoadFile(yaml_path);
     SystemConfig out;
 
@@ -96,6 +170,7 @@ SystemConfig SystemConfig::load(const std::string& yaml_path) {
         out.logging.level = optional<std::string>(l, "level", "info");
         out.logging.json = optional<bool>(l, "json", true);
     }
+    out.validate();
     return out;
 }
 
@@ -108,7 +183,40 @@ bool CamerasConfig::transition_allowed(const std::string& from_zone,
     return false;
 }
 
+void CamerasConfig::validate() const {
+    std::set<std::string> ids;
+    std::set<std::string> zones;
+    for (const auto& c : cameras) {
+        if (c.id.empty()) {
+            throw std::runtime_error("cameras: every entry needs a non-empty id");
+        }
+        if (c.uri.empty()) {
+            throw std::runtime_error("cameras: camera '" + c.id + "' has no uri");
+        }
+        if (!ids.insert(c.id).second) {
+            throw std::runtime_error("cameras: duplicate camera id '" + c.id + "'");
+        }
+        if (!c.zone.empty()) zones.insert(c.zone);
+    }
+
+    // A transition naming a zone no camera sits in is dead topology: it can
+    // never fire, and it usually means a typo that silently blocks a real
+    // hand-off instead.
+    for (const auto& tr : transitions) {
+        if (tr.from.empty() || tr.to.empty()) {
+            throw std::runtime_error("cameras: a transition needs both 'from' and 'to'");
+        }
+        if (zones.count(tr.from) == 0) {
+            throw std::runtime_error("cameras: transition from unknown zone '" + tr.from + "'");
+        }
+        if (zones.count(tr.to) == 0) {
+            throw std::runtime_error("cameras: transition to unknown zone '" + tr.to + "'");
+        }
+    }
+}
+
 CamerasConfig CamerasConfig::load(const std::string& yaml_path) {
+    require_readable(yaml_path);
     const YAML::Node root = YAML::LoadFile(yaml_path);
     CamerasConfig out;
     if (const auto cams = root["cameras"]; cams && cams.IsSequence()) {
@@ -128,6 +236,7 @@ CamerasConfig CamerasConfig::load(const std::string& yaml_path) {
             out.transitions.push_back(std::move(z));
         }
     }
+    out.validate();
     return out;
 }
 
