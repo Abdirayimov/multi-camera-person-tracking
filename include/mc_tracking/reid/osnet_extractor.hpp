@@ -6,14 +6,13 @@
 #include <vector>
 
 #include "mc_tracking/config/system_config.hpp"
+#include "mc_tracking/reid/embedding.hpp"
 
 namespace mc_tracking::trt {
 class TrtEngine;
 }
 
 namespace mc_tracking::reid {
-
-using Embedding = Eigen::Matrix<float, Eigen::Dynamic, 1>;
 
 /// OSNet (Zhou et al., ICCV 2019) appearance feature extractor.
 ///

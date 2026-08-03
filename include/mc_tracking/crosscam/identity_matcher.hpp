@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "mc_tracking/config/system_config.hpp"
-#include "mc_tracking/reid/osnet_extractor.hpp"
+#include "mc_tracking/reid/embedding.hpp"
 #include "mc_tracking/reid/reid_gallery.hpp"
 #include "mc_tracking/tracker/track.hpp"
 

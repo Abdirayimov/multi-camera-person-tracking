@@ -20,6 +20,10 @@ float ReidGallery::best_similarity(std::uint64_t local_id, const Embedding& quer
     if (it == galleries_.end() || it->second.empty()) return -1.0f;
     float best = -1.0f;
     for (const auto& e : it->second) {
+        // A caller that mixes embedding dimensions has a bug upstream, but
+        // dot() on mismatched sizes is undefined behaviour once Eigen's
+        // asserts are compiled out. Report "no match" instead.
+        if (e.size() != query.size()) continue;
         const float sim = e.dot(query);  // both L2-normalized -> cosine
         if (sim > best) best = sim;
     }
