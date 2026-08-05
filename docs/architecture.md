@@ -19,7 +19,7 @@ flowchart LR
     Gallery --> Result[CameraFrameResult]
 ```
 
-The `ITracker` abstraction lets `bytetrack`, `iou`, or `nvdcf` be
+The `ITracker` abstraction lets `bytetrack` or `iou` be
 swapped via `tracker.type` in YAML without touching the rest of the
 pipeline.
 

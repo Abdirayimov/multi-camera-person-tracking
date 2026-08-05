@@ -68,7 +68,7 @@ yolo export model=yolo11x.pt format=onnx imgsz=1280     # detector prep
     --input people.mp4 --output crosscam.mp4
 ```
 
-> Rendered on an RTX 4080: YOLO11x + OSNet TensorRT engines for
+> Rendered on an RTX 4080 Laptop (12 GB): YOLO11x + OSNet TensorRT engines for
 > detection/ReID, all BYTETrack association, cross-camera matching and
 > overlay in C++. `ffmpeg` only decoded/encoded the frames. The
 > single-camera clip is a CC0 concourse video from Pexels; the
@@ -126,7 +126,7 @@ patterns. All algorithms are public; the code is original.
 ```
                        per camera
    ┌────────────────────────────────────────────────────────┐
-   │  frame  →  YOLO11  →  tracker (bytetrack/iou/nvdcf)   │
+   │  frame  →  YOLO11  →  tracker (bytetrack | iou)      │
    │             ↓            ↓                             │
    │         person crops    confirmed tracks (local_id)    │
    │             ↓                                          │
@@ -178,7 +178,7 @@ cmake --build build -j
 
 ```yaml
 tracker:
-  type: bytetrack         # or "iou", or "nvdcf"
+  type: bytetrack         # or "iou"
   bytetrack:
     high_thresh: 0.5
     low_thresh: 0.1
@@ -221,14 +221,17 @@ When `transitions` is empty, any-to-any pairing is allowed.
 ├── docker/, docker-compose.yml
 ├── include/mc_tracking/
 │   ├── config/, utils/
-│   ├── tracker/   bytetrack, iou, nvdcf, kalman_filter
+│   ├── tracker/   bytetrack, iou, kalman_filter
 │   ├── reid/      osnet_extractor, reid_gallery
 │   ├── crosscam/  identity_matcher, hungarian
 │   ├── trt/       trt_engine, yolov8_detector
 │   ├── pipeline/  single_camera, multi_camera
 │   └── overlay/
 ├── src/                  (mirrors include/)
-├── tools/                benchmark.cpp
+├── tests/                113 GoogleTest cases over the CPU-only core
+├── tools/
+│   ├── benchmark.cpp               per-stage latency sweep
+│   └── crosscam_split_demo.cpp     the cross-camera demo above
 ├── scripts/              download_models, build_engines, infer_video
 └── docs/
     ├── architecture.md
@@ -238,7 +241,12 @@ When `transitions` is empty, any-to-any pairing is allowed.
 
 ## Performance
 
-Indicative numbers, single camera, bytetrack:
+Indicative numbers, single camera, bytetrack. **The card these were
+taken on is not recorded**, so read them as relative costs, not as a
+target for your hardware - the shape of the table is the point, and the
+detector dominating it is what survives a change of GPU. Re-run
+`mc_tracking_benchmark` on your own card for numbers you can plan
+against.
 
 | Stage                              | p50 latency  |
 |------------------------------------|-------------:|
@@ -321,8 +329,8 @@ MIT - see [LICENSE](LICENSE).
 
 Reference implementation of patterns from production multi-camera
 tracking work. Algorithms are the published originals
-(YOLOv8, BYTETrack, OSNet, Hungarian); the code is written from
-scratch and uses public checkpoints + synthetic data.
+(YOLO11, BYTETrack, OSNet, Hungarian); the code is written from
+scratch and uses public checkpoints + public domain clips.
 
 Open to contract work on similar systems -
 [email](mailto:khusanabdirayimov@gmail.com) -
