@@ -1,7 +1,7 @@
 <h1 align="center">multi-camera-person-tracking</h1>
 
 <p align="center">
-  <i>C++ pipeline for tracking people across many cameras with a YOLO11 detector + a pluggable single-camera tracker (BYTETrack / IoU / NvDCF), OSNet ReID, and Hungarian-assigned cross-camera identity matching.</i>
+  <i>C++ pipeline for tracking people across many cameras with a YOLO11 detector + a pluggable single-camera tracker (BYTETrack / IoU), OSNet ReID, and Hungarian-assigned cross-camera identity matching.</i>
 </p>
 
 <p align="center">
@@ -9,7 +9,6 @@
   <img src="https://img.shields.io/badge/C%2B%2B-17-blue.svg" alt="C++17">
   <img src="https://img.shields.io/badge/CUDA-12.x-76B900.svg" alt="CUDA">
   <img src="https://img.shields.io/badge/TensorRT-8.6%2B-76B900.svg" alt="TensorRT">
-  <img src="https://img.shields.io/badge/DeepStream-7.x%20|%208.x-76B900.svg" alt="DeepStream">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey.svg" alt="License">
   <img src="https://img.shields.io/badge/status-reference%20implementation-orange.svg" alt="Status">
 </p>
@@ -98,9 +97,9 @@ where the engineering gets interesting:
   facing-away signatures.
 - **Pluggable tracker backends.** Different sites need different
   trade-offs - IoU is cheapest, BYTETrack handles partial
-  occlusion, NvDCF integrates with a DeepStream pipeline.
-  A clean tracker interface lets you A/B them without rewriting
-  the rest of the pipeline.
+  occlusion. A clean tracker interface lets you A/B them without
+  rewriting the rest of the pipeline, and leaves room for a
+  DeepStream-native backend later.
 
 The repository is a clean-room reference implementation of those
 patterns. All algorithms are public; the code is original.
@@ -112,13 +111,14 @@ patterns. All algorithms are public; the code is original.
 - **Three single-camera tracker backends behind a common interface:**
     - `ByteTrack` - two-stage cascade (Zhang et al., ECCV 2022)
     - `IouTracker` - greedy IoU baseline
-    - `NvDcfTracker` - thin wrapper over DeepStream's NvDCF
 - **OSNet ReID** (Zhou et al., ICCV 2019) embedding extractor
 - **Per-track rolling appearance gallery** (`ReidGallery`)
 - **Cross-camera matcher** with zone-transition + spatial-temporal
   gating and Hungarian assignment
 - **OpenCV-based offline driver** that runs single-cam or multi-cam
-- **Docker + docker-compose** (DeepStream-devel base)
+- **Docker + docker-compose** (DeepStream-devel base image, used for
+  the CUDA + TensorRT toolchain it ships; the repo itself contains no
+  DeepStream code)
 - **Benchmark CLI** for per-frame latency
 
 ## Architecture
@@ -217,9 +217,7 @@ When `transitions` is empty, any-to-any pairing is allowed.
 ├── cmake/
 ├── configs/
 │   ├── system_config.yaml          tracker / reid / crosscam
-│   ├── cameras.yaml                multi-camera topology
-│   ├── tracker_nvdcf.yml           DeepStream-native tracker config
-│   └── pgie_yolov8_person.txt      gst-nvinfer config
+│   └── cameras.yaml                multi-camera topology
 ├── docker/, docker-compose.yml
 ├── include/mc_tracking/
 │   ├── config/, utils/
@@ -260,9 +258,12 @@ upstream.
 
 ## Limitations
 
-- The OpenCV driver runs cameras sequentially; for production use
-  the DeepStream pipeline (BUILD_DEEPSTREAM=ON) and run cameras
-  in parallel via separate `nvurisrcbin` sources.
+- **There is no DeepStream pipeline in this repo.** The OpenCV driver
+  is the only one, and it runs cameras sequentially in a single
+  thread. Running cameras in parallel through `nvurisrcbin` sources is
+  the roadmap item below, which is also why `tracker.type: nvdcf` is
+  rejected at startup - NvDCF only produces tracks inside a DeepStream
+  pipeline.
 - The Hungarian solver here is a simplified greedy-with-augment
   variant; for >=100 active global ids you may want to swap in a
   full Munkres implementation.
@@ -303,15 +304,14 @@ validation. GoogleTest is fetched at configure time (pinned to
 `v1.14.0`).
 
 The GPU stages — TensorRT engine wrapper, YOLO detector, OSNet
-extractor, DeepStream pipeline — are not unit tested; they need a device
-and a serialized engine.
+extractor — are not unit tested; they need a device and a serialized
+engine.
 
 ## CI
 
 CI runs clang-format, cppcheck and the CPU-only unit tests. **The CUDA /
-TensorRT / DeepStream build is not exercised on GitHub runners** — they
-carry none of those SDKs. Build it locally or through the provided
-Docker image.
+TensorRT build is not exercised on GitHub runners** — they carry
+neither SDK. Build it locally or through the provided Docker image.
 
 ## License
 

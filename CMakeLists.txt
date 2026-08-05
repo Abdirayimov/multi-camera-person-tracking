@@ -14,10 +14,9 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(BUILD_TOOLS "Build CLI tools" ON)
-option(BUILD_DEEPSTREAM "Build the DeepStream pipeline (requires NvDCF + libgstreamer)" ON)
 option(MCT_BUILD_TESTS "Build the GoogleTest unit test suite" OFF)
 option(MCT_CPU_ONLY
-       "Build only the CPU-only algorithmic core (no CUDA / TensorRT / DeepStream)" OFF)
+       "Build only the CPU-only algorithmic core (no CUDA / TensorRT)" OFF)
 
 # Accepted for backwards compatibility with pre-0.2 build scripts.
 if(BUILD_TESTS AND NOT MCT_BUILD_TESTS)
@@ -29,7 +28,6 @@ if(MCT_CPU_ONLY)
     # The GPU stages have no meaning without their SDKs; turn them off
     # rather than letting find_package fail late.
     set(BUILD_TOOLS OFF)
-    set(BUILD_DEEPSTREAM OFF)
 endif()
 
 # ---- Dependencies ----
@@ -44,21 +42,6 @@ if(NOT MCT_CPU_ONLY)
     find_package(CUDAToolkit 12.0 REQUIRED)
     find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs videoio)
     find_package(TensorRT REQUIRED)
-endif()
-
-if(BUILD_DEEPSTREAM)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(GST REQUIRED IMPORTED_TARGET
-        gstreamer-1.0
-        gstreamer-app-1.0
-        gobject-2.0
-        glib-2.0
-    )
-    find_package(DeepStream 8.0)
-    if(NOT DeepStream_FOUND)
-        message(WARNING "DeepStream SDK not found; disabling DeepStream pipeline")
-        set(BUILD_DEEPSTREAM OFF)
-    endif()
 endif()
 
 # ---- Library: mc_tracking_core (static, CPU only) ----
@@ -112,11 +95,6 @@ foreach(core_src
     list(FILTER MCT_SOURCES EXCLUDE REGEX "${core_src}\\.cpp$")
 endforeach()
 
-if(NOT BUILD_DEEPSTREAM)
-    list(FILTER MCT_SOURCES EXCLUDE REGEX "deepstream_pipeline\\.cpp$")
-    list(FILTER MCT_SOURCES EXCLUDE REGEX "nvdcf_tracker\\.cpp$")
-endif()
-
 add_library(mc_tracking STATIC ${MCT_SOURCES})
 target_include_directories(mc_tracking
     PUBLIC
@@ -136,15 +114,6 @@ target_link_libraries(mc_tracking
         TensorRT::nvinfer
         TensorRT::nvonnxparser
 )
-if(BUILD_DEEPSTREAM)
-    target_include_directories(mc_tracking PUBLIC ${DeepStream_INCLUDE_DIRS})
-    target_link_libraries(mc_tracking PUBLIC
-        DeepStream::nvds_meta
-        DeepStream::nvbufsurface
-        PkgConfig::GST
-    )
-    target_compile_definitions(mc_tracking PUBLIC MCT_HAVE_DEEPSTREAM=1)
-endif()
 set_target_properties(mc_tracking PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # ---- Executable: mc_tracking_video (offline OpenCV driver) ----
@@ -185,7 +154,6 @@ if(NOT MCT_CPU_ONLY)
     message(STATUS "  TensorRT:         ${TensorRT_VERSION}")
 endif()
 message(STATUS "  OpenCV:           ${OpenCV_VERSION}")
-message(STATUS "  DeepStream path:  ${BUILD_DEEPSTREAM}")
 message(STATUS "  Build tools:      ${BUILD_TOOLS}")
 message(STATUS "  Build tests:      ${MCT_BUILD_TESTS}")
 message(STATUS "")

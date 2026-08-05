@@ -322,15 +322,16 @@ TEST(TrackerFactory, BuildsTheRequestedCpuTrackers) {
     EXPECT_NE(make_tracker(cfg), nullptr);
 }
 
-#ifndef MCT_HAVE_DEEPSTREAM
-TEST(TrackerFactory, RefusesNvDcfWhenBuiltWithoutDeepStream) {
+TEST(TrackerFactory, AlwaysRefusesNvDcf) {
     TrackerConfig cfg;
     cfg.type = TrackerType::NvDcf;
 
-    // Better a clear error at construction than a null tracker that
-    // silently produces no tracks at runtime.
+    // Unconditional, in every build configuration: NvDCF needs a DeepStream
+    // pipeline this repo does not implement. The rejected-at-construction
+    // path used to be conditional, and the other branch handed back a
+    // wrapper whose ingest method nothing ever called - a tracker that
+    // returned zero tracks for every frame, forever, without an error.
     EXPECT_THROW(make_tracker(cfg), std::runtime_error);
 }
-#endif
 
 }  // namespace

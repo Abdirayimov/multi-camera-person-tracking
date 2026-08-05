@@ -43,6 +43,10 @@ struct IouParams {
     std::uint32_t min_hits = 3;
 };
 
+/// Parsed, then rejected by `make_tracker`. NvDCF is a DeepStream plugin
+/// and needs a pipeline this repo does not ship; the schema is kept so an
+/// existing config produces a message that says so, rather than the generic
+/// "unknown tracker".
 struct NvDcfParams {
     std::string config_path;
     std::uint32_t tracker_width = 640;

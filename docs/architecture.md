@@ -2,7 +2,7 @@
 
 Two layers, separated cleanly so each can be swapped:
 
-1. **Per camera** - YOLOv8 -> tracker -> ReID, sequential per frame.
+1. **Per camera** - YOLO11 -> tracker -> ReID, sequential per frame.
 2. **Across cameras** - IdentityMatcher consumes per-camera snapshots
    and produces stable global ids.
 
@@ -10,7 +10,7 @@ Two layers, separated cleanly so each can be swapped:
 
 ```mermaid
 flowchart LR
-    Frame --> Det[YOLOv8 detect]
+    Frame --> Det[YOLO11 detect]
     Det --> Trk[ITracker::update]
     Trk --> Confirmed[Confirmed tracks]
     Confirmed --> Crops[crop_persons]
@@ -60,11 +60,12 @@ the bank costs ~10% recall on transitions where the person turns.
 
 ## Threading
 
-The OpenCV-only driver is single-threaded: cameras are processed
-sequentially per frame. The DeepStream variant (when built) gives
-each `nvurisrcbin` its own decoder thread; the orchestrator's
-`stamp_global_ids` runs on whichever thread the probe fires on, so
-keep the matcher fast.
+The OpenCV driver is single-threaded: cameras are processed
+sequentially per frame. It is the only driver in this tree. A planned
+DeepStream variant would give each `nvurisrcbin` its own decoder
+thread and call `stamp_global_ids` from whichever thread the probe
+fires on - which is the reason the matcher is written to be cheap,
+even though nothing calls it concurrently today.
 
 `IdentityMatcher` itself is currently *not* thread-safe; the
 orchestrator serialises calls. Multi-process deployments need a

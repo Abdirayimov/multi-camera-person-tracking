@@ -27,7 +27,7 @@ tracker:
     max_age: 20
     min_hits: 2
   nvdcf:
-    config_path: "configs/tracker_nvdcf.yml"
+    config_path: "nvdcf-tracker-config.yml"
     tracker_width: 960
     tracker_height: 544
 

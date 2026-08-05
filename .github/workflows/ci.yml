@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 
-# GitHub-hosted runners carry no CUDA, TensorRT or DeepStream, so the full
+# GitHub-hosted runners carry neither CUDA nor TensorRT, so the full
 # build cannot run here. CI covers what it honestly can: formatting, static
 # analysis, and the CPU-only algorithmic core with its unit tests. Build the
 # GPU pipeline locally or through docker/Dockerfile.
@@ -39,7 +39,7 @@ jobs:
       - name: Install cppcheck
         run: sudo apt-get update && sudo apt-get install -y cppcheck
 
-      # The CUDA / TensorRT / DeepStream headers are absent on the runner,
+      # The CUDA / TensorRT headers are absent on the runner,
       # hence the include suppressions; everything else is an error.
       - name: Run cppcheck
         run: |

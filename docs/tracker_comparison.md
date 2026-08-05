@@ -1,19 +1,20 @@
 # Tracker backend comparison
 
-The repository ships three single-camera tracker backends that share
-the `ITracker` interface. This page summarises the trade-offs.
+The repository ships **two** single-camera tracker backends that share
+the `ITracker` interface. This page summarises the trade-offs, and
+explains why a third one people ask about is not here.
 
 ## Quick reference
 
-|                       | IoU         | BYTETrack            | NvDCF (DS)         |
-|-----------------------|-------------|----------------------|--------------------|
-| Algorithm complexity  | minimal     | moderate             | proprietary        |
-| CPU cost / frame      | <0.1 ms     | ~0.5 ms              | n/a (GStreamer)    |
-| Motion model          | none        | Kalman 8-state       | Kalman + visual    |
-| Handles occlusion     | poor        | good (low-conf pass) | excellent          |
-| ID switch frequency   | high        | low                  | very low           |
-| Dependency footprint  | header-only | header-only          | DeepStream SDK     |
-| When to use it        | baseline    | default              | full DS pipeline   |
+|                       | IoU         | BYTETrack            |
+|-----------------------|-------------|----------------------|
+| Algorithm complexity  | minimal     | moderate             |
+| CPU cost / frame      | <0.1 ms     | ~0.5 ms              |
+| Motion model          | none        | Kalman 8-state       |
+| Handles occlusion     | poor        | good (low-conf pass) |
+| ID switch frequency   | high        | low                  |
+| Dependency footprint  | header-only | header-only          |
+| When to use it        | baseline    | default              |
 
 ## IoU tracker
 
@@ -42,17 +43,27 @@ Tuning notes:
 - `match_thresh=0.8` is the (1 - IoU) cost cap. Tightening to 0.7
   reduces ID switches at the cost of more new-track spawns.
 
-## NvDCF wrapper
+## NvDCF - why it is not here
 
-The wrapper here does not run NvDCF in-process; it ingests results
-that the DeepStream pipeline's src-pad probe forwards from
-`libnvds_nvmultiobjecttracker.so`. The benefit is that you keep the
-mature DeepStream tracker - including its visual feature extractor -
-without abandoning the rest of this toolkit.
+NvDCF is not a tracker anyone reimplements: it lives inside
+DeepStream's `libnvds_nvmultiobjecttracker.so`. A project like this
+one cannot run it in-process. The only way to use it is to build a
+DeepStream pipeline and let a src-pad probe forward the tracker
+metadata that plugin already produced.
 
-Build with `BUILD_DEEPSTREAM=ON`. When DeepStream is missing, the
-NvDCF wrapper is excluded from the build automatically and choosing
-`tracker.type: nvdcf` at runtime throws a clear error.
+That pipeline is on the roadmap and is not in this tree, so there is
+no NvDCF backend to select. `tracker.type: nvdcf` parses - the schema
+keeps it so an existing config gets a useful message rather than
+"unknown tracker" - and then `make_tracker` throws:
+
+> the NvDCF tracker requires a DeepStream pipeline that is not
+> implemented in this reference; use bytetrack or iou
+
+An earlier revision of this file described a wrapper that ingested
+probe output. The wrapper existed, but nothing ever called its
+`ingest_tracker_results`, so selecting `nvdcf` produced a tracker that
+returned an empty result for every frame. It was removed rather than
+documented.
 
 ## Choosing the right backend
 
@@ -60,9 +71,12 @@ NvDCF wrapper is excluded from the build automatically and choosing
   fine.
 - **You are running a single camera in production and worry about
   ID consistency.** BYTETrack.
-- **You already have a DeepStream pipeline and want the best
-  available tracker.** NvDCF.
+- **You already have a DeepStream pipeline and want NvDCF.** Keep the
+  pipeline you have and take only the cross-camera half of this repo:
+  `IdentityMatcher` consumes `Track` values and does not care which
+  backend produced them. Feeding it from your own probe is a smaller
+  job than the DeepStream path on this roadmap.
 
 The cross-camera matcher is independent of which backend you pick;
-all three produce the same `Track` value type so the orchestrator
-treats them interchangeably.
+both produce the same `Track` value type so the orchestrator treats
+them interchangeably.
