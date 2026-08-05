@@ -23,16 +23,20 @@ public:
         switch (severity) {
             case Severity::kINTERNAL_ERROR:
             case Severity::kERROR:
-                SPDLOG_ERROR("[TRT] {}", msg);
+                spdlog::error("[TRT] {}", msg);
                 break;
             case Severity::kWARNING:
-                SPDLOG_WARN("[TRT] {}", msg);
+                spdlog::warn("[TRT] {}", msg);
                 break;
+            // Free functions, not the SPDLOG_* macros: those are compiled
+            // out below SPDLOG_ACTIVE_LEVEL, so TensorRT's INFO and VERBOSE
+            // output would never reach the sink whatever the runtime level
+            // was set to.
             case Severity::kINFO:
-                SPDLOG_DEBUG("[TRT] {}", msg);
+                spdlog::debug("[TRT] {}", msg);
                 break;
             case Severity::kVERBOSE:
-                SPDLOG_TRACE("[TRT] {}", msg);
+                spdlog::trace("[TRT] {}", msg);
                 break;
         }
     }

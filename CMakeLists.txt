@@ -65,6 +65,14 @@ target_include_directories(mc_tracking_core
         $<BUILD_INTERFACE:${CMAKE_SOURCE_DIR}/include>
         ${OpenCV_INCLUDE_DIRS}
 )
+# spdlog compiles out every SPDLOG_* macro below this level, whatever the
+# runtime level is later set to. Left at the default (INFO), `log_level:
+# debug` silently changed nothing. Set here rather than in a header so it
+# cannot depend on include order: PUBLIC, so it reaches mc_tracking, the
+# tools and the tests too.
+target_compile_definitions(mc_tracking_core
+    PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
+
 target_link_libraries(mc_tracking_core
     PUBLIC
         opencv_core

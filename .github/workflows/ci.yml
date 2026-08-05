@@ -26,9 +26,9 @@ jobs:
 
       - name: Check formatting
         run: |
-          find src include tools \
+          find src include tools tests \
                \( -name '*.cpp' -o -name '*.hpp' -o -name '*.h' \) -print0 \
-            | xargs -0 clang-format --dry-run --Werror
+            | xargs -0 -r clang-format --dry-run --Werror
 
   static-analysis:
     name: cppcheck
@@ -39,8 +39,12 @@ jobs:
       - name: Install cppcheck
         run: sudo apt-get update && sudo apt-get install -y cppcheck
 
-      # The CUDA / TensorRT headers are absent on the runner,
-      # hence the include suppressions; everything else is an error.
+      # The CUDA / TensorRT headers are absent on the runner, hence the
+      # include suppressions; everything else is an error.
+      #
+      # tests/ is deliberately not analysed here: without GoogleTest's
+      # headers cppcheck cannot parse the TEST() macro and reports a
+      # syntaxError for every case. The format job does cover tests/.
       - name: Run cppcheck
         run: |
           cppcheck --enable=warning,style,performance \
