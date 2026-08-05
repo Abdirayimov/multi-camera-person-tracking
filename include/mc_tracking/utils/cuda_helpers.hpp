@@ -15,6 +15,66 @@ inline void cuda_check(cudaError_t err, const char* file, int line) {
     }
 }
 
+/// Owning wrapper over a single `cudaMalloc` allocation.
+///
+/// Exists so that a constructor which allocates several buffers and then
+/// throws does not leak the ones it already got: a partially-constructed
+/// object never runs its destructor, but its fully-constructed members do.
+class DeviceBuffer {
+public:
+    DeviceBuffer() = default;
+    explicit DeviceBuffer(std::size_t bytes) : bytes_(bytes) {
+        if (bytes > 0) cuda_check(cudaMalloc(&data_, bytes), __FILE__, __LINE__);
+    }
+    ~DeviceBuffer() { release(); }
+
+    DeviceBuffer(const DeviceBuffer&) = delete;
+    DeviceBuffer& operator=(const DeviceBuffer&) = delete;
+
+    DeviceBuffer(DeviceBuffer&& other) noexcept : data_(other.data_), bytes_(other.bytes_) {
+        other.data_ = nullptr;
+        other.bytes_ = 0;
+    }
+    DeviceBuffer& operator=(DeviceBuffer&& other) noexcept {
+        if (this != &other) {
+            release();
+            data_ = other.data_;
+            bytes_ = other.bytes_;
+            other.data_ = nullptr;
+            other.bytes_ = 0;
+        }
+        return *this;
+    }
+
+    /// Free the current allocation. Never throws, so the destructor and the
+    /// move assignment can call it without risking std::terminate.
+    void release() noexcept {
+        if (data_ != nullptr) {
+            cudaFree(data_);
+            data_ = nullptr;
+            bytes_ = 0;
+        }
+    }
+
+    /// Free the current allocation and, if `new_bytes > 0`, allocate a new
+    /// one. Throws on allocation failure, leaving the buffer empty.
+    void reset(std::size_t new_bytes = 0) {
+        release();
+        if (new_bytes > 0) {
+            cuda_check(cudaMalloc(&data_, new_bytes), __FILE__, __LINE__);
+            bytes_ = new_bytes;
+        }
+    }
+
+    void* get() noexcept { return data_; }
+    const void* get() const noexcept { return data_; }
+    std::size_t bytes() const noexcept { return bytes_; }
+
+private:
+    void* data_ = nullptr;
+    std::size_t bytes_ = 0;
+};
+
 class CudaStream {
 public:
     CudaStream() { cuda_check(cudaStreamCreate(&stream_), __FILE__, __LINE__); }

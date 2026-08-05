@@ -48,6 +48,11 @@ public:
     const BindingInfo& binding(const std::string& name) const;
 
 private:
+    /// Non-const sibling of `binding`, for the one caller that legitimately
+    /// rewrites a binding's shape. Replaces a const_cast on the public
+    /// accessor's return value.
+    BindingInfo& mutable_binding(const std::string& name);
+
     struct Impl;
     std::unique_ptr<Impl> impl_;
     std::vector<BindingInfo> bindings_;

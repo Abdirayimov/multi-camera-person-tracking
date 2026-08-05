@@ -6,7 +6,10 @@
 
 #include <fstream>
 #include <stdexcept>
+#include <string>
 #include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "mc_tracking/utils/cuda_helpers.hpp"
 
@@ -76,16 +79,25 @@ struct TrtEngine::Impl {
     std::unique_ptr<nvinfer1::IRuntime> runtime;
     std::unique_ptr<nvinfer1::ICudaEngine> engine;
     std::unique_ptr<nvinfer1::IExecutionContext> context;
-    std::unordered_map<std::string, void*> device_buffers;
+    // Owning. The constructor allocates one of these per binding and can
+    // throw part-way through; DeviceBuffer frees what was already taken,
+    // which ~TrtEngine cannot do because it never runs for an object whose
+    // constructor threw.
+    std::unordered_map<std::string, utils::DeviceBuffer> device_buffers;
 };
 
 TrtEngine::TrtEngine(const std::string& engine_path) : impl_(std::make_unique<Impl>()) {
     std::ifstream f(engine_path, std::ios::binary | std::ios::ate);
     if (!f.is_open()) throw std::runtime_error("cannot open TRT engine: " + engine_path);
     const std::streamsize sz = f.tellg();
+    // tellg returns -1 on failure, which would size the vector from a huge
+    // unsigned value; an empty file is equally not an engine.
+    if (sz <= 0) throw std::runtime_error("TRT engine file is empty or unreadable: " + engine_path);
     f.seekg(0, std::ios::beg);
     std::vector<char> blob(static_cast<std::size_t>(sz));
-    f.read(blob.data(), sz);
+    if (!f.read(blob.data(), sz)) {
+        throw std::runtime_error("short read on TRT engine: " + engine_path);
+    }
 
     impl_->runtime.reset(nvinfer1::createInferRuntime(global_trt_logger()));
     if (!impl_->runtime) throw std::runtime_error("createInferRuntime failed");
@@ -114,43 +126,46 @@ TrtEngine::TrtEngine(const std::string& engine_path) : impl_(std::make_unique<Im
         info.is_input = (io == nvinfer1::TensorIOMode::kINPUT);
 
         if (info.volume > 0 && info.element_size > 0) {
-            void* ptr = nullptr;
-            MCT_CUDA_CHECK(cudaMalloc(&ptr, info.volume * info.element_size));
-            impl_->device_buffers[info.name] = ptr;
-            impl_->context->setTensorAddress(name, ptr);
+            utils::DeviceBuffer buf(info.volume * info.element_size);
+            impl_->context->setTensorAddress(name, buf.get());
+            impl_->device_buffers[info.name] = std::move(buf);
         }
         bindings_.push_back(std::move(info));
     }
 }
 
-TrtEngine::~TrtEngine() {
-    if (impl_) {
-        for (auto& [_, ptr] : impl_->device_buffers) {
-            if (ptr != nullptr) cudaFree(ptr);
-        }
-    }
-}
+// Defined here, where Impl is complete, and left in place: pimpl needs the
+// destructor in this translation unit even though DeviceBuffer now does the
+// freeing.
+TrtEngine::~TrtEngine() = default;
 
 TrtEngine::TrtEngine(TrtEngine&&) noexcept = default;
 TrtEngine& TrtEngine::operator=(TrtEngine&&) noexcept = default;
 
 void TrtEngine::set_input_shape(const std::string& name, const std::vector<std::int64_t>& shape) {
+    // nvinfer1::Dims::d is a fixed array of MAX_DIMS; writing past it
+    // corrupts the stack frame this Dims sits in.
+    if (shape.size() > static_cast<std::size_t>(nvinfer1::Dims::MAX_DIMS)) {
+        throw std::invalid_argument("shape rank " + std::to_string(shape.size()) + " for '" + name +
+                                    "' exceeds nvinfer1::Dims::MAX_DIMS (" +
+                                    std::to_string(nvinfer1::Dims::MAX_DIMS) + ")");
+    }
     nvinfer1::Dims dims;
     dims.nbDims = static_cast<std::int32_t>(shape.size());
     for (std::size_t i = 0; i < shape.size(); ++i) dims.d[i] = shape[i];
     if (!impl_->context->setInputShape(name.c_str(), dims)) {
         throw std::runtime_error("setInputShape failed for " + name);
     }
-    auto& info = const_cast<BindingInfo&>(binding(name));
+
+    // Allocate before touching the binding metadata. reset() throwing used
+    // to leave info.shape describing the new shape while the buffer was
+    // gone, so the next copy_input wrote into a null device pointer.
+    auto& info = mutable_binding(name);
+    auto& buf = impl_->device_buffers[name];
+    buf.reset(volume_of(shape) * info.element_size);
     info.shape = shape;
     info.volume = volume_of(shape);
-    void*& ptr = impl_->device_buffers[name];
-    if (ptr != nullptr) {
-        cudaFree(ptr);
-        ptr = nullptr;
-    }
-    MCT_CUDA_CHECK(cudaMalloc(&ptr, info.volume * info.element_size));
-    impl_->context->setTensorAddress(name.c_str(), ptr);
+    impl_->context->setTensorAddress(name.c_str(), buf.get());
 
     // Setting an input shape resolves previously-dynamic output shapes.
     // Re-query each output binding from the context and (re)allocate +
@@ -169,28 +184,24 @@ void TrtEngine::set_input_shape(const std::string& name, const std::vector<std::
         }
         if (!concrete) continue;
         const std::size_t new_vol = volume_of(resolved);
-        if (new_vol == out.volume && impl_->device_buffers[out.name] != nullptr) continue;
+        auto& obuf = impl_->device_buffers[out.name];
+        if (new_vol == out.volume && obuf.get() != nullptr) continue;
+        obuf.reset(new_vol * out.element_size);
         out.shape = resolved;
         out.volume = new_vol;
-        void*& optr = impl_->device_buffers[out.name];
-        if (optr != nullptr) {
-            cudaFree(optr);
-            optr = nullptr;
-        }
-        MCT_CUDA_CHECK(cudaMalloc(&optr, out.volume * out.element_size));
-        impl_->context->setTensorAddress(out.name.c_str(), optr);
+        impl_->context->setTensorAddress(out.name.c_str(), obuf.get());
     }
 }
 
 void TrtEngine::copy_input(const std::string& name, const void* host_src, std::size_t bytes,
                            cudaStream_t stream) {
-    void* dst = impl_->device_buffers.at(name);
+    void* dst = impl_->device_buffers.at(name).get();
     MCT_CUDA_CHECK(cudaMemcpyAsync(dst, host_src, bytes, cudaMemcpyHostToDevice, stream));
 }
 
 void TrtEngine::copy_output(const std::string& name, void* host_dst, std::size_t bytes,
                             cudaStream_t stream) const {
-    void* src = impl_->device_buffers.at(name);
+    const void* src = impl_->device_buffers.at(name).get();
     MCT_CUDA_CHECK(cudaMemcpyAsync(host_dst, src, bytes, cudaMemcpyDeviceToHost, stream));
 }
 
@@ -201,16 +212,26 @@ void TrtEngine::infer(cudaStream_t stream) {
 }
 
 void* TrtEngine::device_ptr(const std::string& name) {
-    return impl_->device_buffers.at(name);
+    return impl_->device_buffers.at(name).get();
 }
 
 const void* TrtEngine::device_ptr(const std::string& name) const {
-    return impl_->device_buffers.at(name);
+    return impl_->device_buffers.at(name).get();
 }
 
 const BindingInfo& TrtEngine::binding(const std::string& name) const {
     for (const auto& b : bindings_) {
         if (b.name == name) return b;
+    }
+    throw std::out_of_range("no such binding: " + name);
+}
+
+BindingInfo& TrtEngine::mutable_binding(const std::string& name) {
+    // Indexed rather than range-based: a `auto& b` loop that returns b trips
+    // cppcheck's constVariableReference, and the const-ref form it suggests
+    // would not compile against this return type.
+    for (std::size_t i = 0; i < bindings_.size(); ++i) {
+        if (bindings_[i].name == name) return bindings_[i];
     }
     throw std::out_of_range("no such binding: " + name);
 }
