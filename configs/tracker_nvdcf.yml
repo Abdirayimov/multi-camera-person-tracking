@@ -1,0 +1,61 @@
+%YAML:1.0
+####################################################################
+# NvDCF tracker config for DeepStream 8.x, consumed by nvtracker's
+# ll-config-file via tracker.nvdcf.config_path in system_config.yaml.
+#
+# Parameter names are the DS8 schema. An earlier revision of this file
+# used the DS6-era schema; DS8's DataAssociator dereferences similarity
+# params that schema never sets and segfaults — if you are on an older
+# DeepStream, start from the sample config it ships instead.
+#
+# Values are the moderate defaults NVIDIA tunes for the perf profile,
+# with person-tracking adjustments commented where they differ.
+####################################################################
+
+BaseConfig:
+  minDetectorConfidence: 0.4      # matches pre-cluster-threshold in pgie_yolo_person.txt
+
+TargetManagement:
+  enableBboxUnClipping: 1
+  preserveStreamUpdateOrder: 1    # deterministic id order across runs
+  maxTargetsPerStream: 64
+  minIouDiff4NewTarget: 0.7
+  minTrackerConfidence: 0.4
+  probationAge: 3                 # frames before a target is reported
+  maxShadowTrackingAge: 51        # ~1.7 s at 30 fps of coasting through occlusion
+  earlyTerminationAge: 1
+
+TrajectoryManagement:
+  useUniqueID: 0
+
+DataAssociator:
+  dataAssociatorType: 0
+  associationMatcherType: 1       # CASCADED
+  checkClassMatch: 1
+  minMatchingScore4Overall: 0.43
+  minMatchingScore4SizeSimilarity: 0.36
+  minMatchingScore4Iou: 0.26
+  minMatchingScore4VisualSimilarity: 0.54
+  matchingScoreWeight4VisualSimilarity: 0.34
+  matchingScoreWeight4SizeSimilarity: 0.43
+  matchingScoreWeight4Iou: 0.37
+  tentativeDetectorConfidence: 0.2
+  minMatchingScore4TentativeIou: 0.53
+
+StateEstimator:
+  stateEstimatorType: 1           # SIMPLE (Kalman)
+  processNoiseVar4Loc: 1.51
+  processNoiseVar4Size: 1.32
+  processNoiseVar4Vel: 0.03
+  measurementNoiseVar4Detector: 3.03
+  measurementNoiseVar4Tracker: 8.15
+
+VisualTracker:
+  visualTrackerType: 2            # NvDCF_VPI
+  useColorNames: 1
+  useHog: 0
+  featureImgSizeLevel: 2
+  featureFocusOffsetFactor_y: -0.2
+  filterLr: 0.075
+  filterChannelWeightsLr: 0.1
+  gaussianSigma: 0.75

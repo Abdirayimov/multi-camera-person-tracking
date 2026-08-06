@@ -32,10 +32,15 @@ tracker:
     max_age: 30              # frames a track is kept after losing detection
     min_hits: 3              # consecutive observations required to confirm
 
-  # nvdcf: parsed but rejected at runtime. NvDCF lives inside DeepStream and
-  # needs a pipeline this repo does not implement; see the roadmap. The
-  # settings are kept in the schema so an existing config gets a clear error
-  # instead of "unknown tracker".
+  # NvDCF runs inside DeepStream's nvtracker element, so it is not a
+  # selectable backend for the in-process OpenCV driver (make_tracker
+  # rejects it there). The mc_tracking_ds binary is the consumer of this
+  # block: config_path feeds ll-config-file, the two sizes feed
+  # tracker-width/height.
+  nvdcf:
+    config_path: "configs/tracker_nvdcf.yml"
+    tracker_width: 640
+    tracker_height: 384
 
 # Per-track ReID embedding extractor. Used both for stronger
 # in-camera association (reduces ID switches under occlusion) and as

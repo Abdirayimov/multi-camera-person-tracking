@@ -61,11 +61,13 @@ the bank costs ~10% recall on transitions where the person turns.
 ## Threading
 
 The OpenCV driver is single-threaded: cameras are processed
-sequentially per frame. It is the only driver in this tree. A planned
-DeepStream variant would give each `nvurisrcbin` its own decoder
-thread and call `stamp_global_ids` from whichever thread the probe
-fires on - which is the reason the matcher is written to be cheap,
-even though nothing calls it concurrently today.
+sequentially per frame, and it is the only driver that runs the
+cross-camera matcher. The DeepStream driver (`mc_tracking_ds`) gives
+each `nvurisrcbin` its own decode path and fires the track callback
+from a GStreamer streaming thread - the callback must copy out and
+return quickly, or it throttles decode upstream. It does not call
+`stamp_global_ids` yet: that needs ReID embeddings, which the
+pipeline will only have once OSNet runs as a secondary GIE (roadmap).
 
 `IdentityMatcher` itself is currently *not* thread-safe; the
 orchestrator serialises calls. Multi-process deployments need a

@@ -1,0 +1,33 @@
+# gst-nvinfer config for the Ultralytics person detector.
+#
+# Paths are resolved relative to THIS file. The custom parser library is
+# built by the repo itself (BUILD_DEEPSTREAM=ON -> libmc_yolo_parser.so in
+# the build directory); adjust custom-lib-path if your build dir differs.
+
+[property]
+gpu-id=0
+net-scale-factor=0.0039215697906911373
+model-color-format=0
+onnx-file=../models/onnx/yolov8n.onnx
+model-engine-file=../models/engines/yolov8n_person_b1_fp16.engine
+infer-dims=3;640;640
+batch-size=1
+network-mode=2
+num-detected-classes=80
+gie-unique-id=1
+process-mode=1
+network-type=0
+cluster-mode=2
+maintain-aspect-ratio=1
+symmetric-padding=1
+parse-bbox-func-name=NvDsInferParseCustomYoloUltralytics
+custom-lib-path=../build/libmc_yolo_parser.so
+
+# Class 0 is "person" in the COCO export. Everything else is disabled by
+# an impossible threshold rather than filtered in the parser twice.
+[class-attrs-all]
+pre-cluster-threshold=1.1
+
+[class-attrs-0]
+pre-cluster-threshold=0.4
+nms-iou-threshold=0.5

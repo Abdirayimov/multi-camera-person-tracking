@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <iostream>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
 #include <string>

@@ -13,15 +13,13 @@ std::unique_ptr<ITracker> make_tracker(const config::TrackerConfig& cfg) {
         case config::TrackerType::Iou:
             return std::make_unique<IouTracker>(cfg.iou);
         case config::TrackerType::NvDcf:
-            // NvDCF is not a tracker this project implements: it lives inside
-            // DeepStream's libnvds_nvmultiobjecttracker.so and only produces
-            // tracks when a DeepStream pipeline forwards them from a src-pad
-            // probe. That pipeline is on the roadmap, not in the tree, so the
-            // value is rejected in every build configuration rather than
-            // returning a backend that would silently track nobody.
+            // NvDCF lives inside DeepStream's nvtracker element; it cannot be
+            // hosted by this in-process driver. The DeepStream pipeline that
+            // runs it is mc_tracking_ds (BUILD_DEEPSTREAM=ON), which delivers
+            // NvDCF tracks through its probe callback instead of ITracker.
             throw std::runtime_error(
-                "the NvDCF tracker requires a DeepStream pipeline that is not implemented in "
-                "this reference; use bytetrack or iou");
+                "the NvDCF tracker runs inside DeepStream; use the mc_tracking_ds binary "
+                "(BUILD_DEEPSTREAM=ON), or bytetrack/iou for this in-process driver");
     }
     throw std::runtime_error("unhandled tracker type");
 }

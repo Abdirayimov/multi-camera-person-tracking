@@ -13,8 +13,9 @@ namespace mc_tracking::pipeline {
 /// Synchronously drives every camera one frame at a time, collects
 /// each camera's confirmed tracks, runs the cross-camera matcher,
 /// and stamps the resulting global ids back onto the per-camera
-/// results. Single-threaded and the only driver in the tree; a planned
-/// DeepStream variant would drive each camera from its own GLib loop.
+/// results. Single-threaded, and the only driver that runs the
+/// cross-camera matcher; the DeepStream driver (mc_tracking_ds) does
+/// per-camera NvDCF tracking on its own GLib loop instead.
 class MultiCameraOrchestrator {
 public:
     MultiCameraOrchestrator(const config::SystemConfig& cfg, const config::CamerasConfig& cameras);

@@ -14,6 +14,8 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(BUILD_TOOLS "Build CLI tools" ON)
+option(BUILD_DEEPSTREAM
+       "Build the DeepStream + NvDCF pipeline (requires the DeepStream SDK and GStreamer)" ON)
 option(MCT_BUILD_TESTS "Build the GoogleTest unit test suite" OFF)
 option(MCT_CPU_ONLY
        "Build only the CPU-only algorithmic core (no CUDA / TensorRT)" OFF)
@@ -28,6 +30,7 @@ if(MCT_CPU_ONLY)
     # The GPU stages have no meaning without their SDKs; turn them off
     # rather than letting find_package fail late.
     set(BUILD_TOOLS OFF)
+    set(BUILD_DEEPSTREAM OFF)
 endif()
 
 # ---- Dependencies ----
@@ -42,6 +45,16 @@ if(NOT MCT_CPU_ONLY)
     find_package(CUDAToolkit 12.0 REQUIRED)
     find_package(OpenCV 4.5 REQUIRED COMPONENTS core imgproc imgcodecs videoio)
     find_package(TensorRT REQUIRED)
+endif()
+
+if(BUILD_DEEPSTREAM)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GST IMPORTED_TARGET gstreamer-1.0 gstreamer-video-1.0 gstreamer-base-1.0 gobject-2.0 glib-2.0)
+    find_package(DeepStream 8.0)
+    if(NOT DeepStream_FOUND OR NOT GST_FOUND)
+        message(WARNING "DeepStream SDK or GStreamer not found; disabling the DeepStream pipeline")
+        set(BUILD_DEEPSTREAM OFF)
+    endif()
 endif()
 
 # ---- Library: mc_tracking_core (static, CPU only) ----
@@ -115,18 +128,45 @@ target_link_libraries(mc_tracking
         mc_tracking_core
         CUDA::cudart
         CUDA::cuda_driver
-        ${OpenCV_LIBS}
+        # Only what the library itself uses. imgcodecs/videoio belong to the
+        # video tools; keeping them off the library lets the DeepStream
+        # driver link on machines where OpenCV's ffmpeg half is unusable.
+        opencv_core
+        opencv_imgproc
         Eigen3::Eigen
         spdlog::spdlog
         yaml-cpp::yaml-cpp
         TensorRT::nvinfer
         TensorRT::nvonnxparser
 )
+if(BUILD_DEEPSTREAM)
+    target_include_directories(mc_tracking PUBLIC ${DeepStream_INCLUDE_DIRS})
+    target_link_libraries(mc_tracking PUBLIC
+        DeepStream::nvds_meta
+        DeepStream::nvdsgst_meta
+        DeepStream::nvbufsurface
+        PkgConfig::GST
+    )
+endif()
 set_target_properties(mc_tracking PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+# ---- DeepStream extras: the nvinfer bbox parser and the NvDCF driver ----
+if(BUILD_DEEPSTREAM)
+    add_library(mc_yolo_parser SHARED src/ds/yolo_parser.cpp)
+    target_include_directories(mc_yolo_parser PRIVATE
+        ${DeepStream_INCLUDE_DIRS} ${TensorRT_INCLUDE_DIRS})
+    # gst-nvinfer dlopens this; it needs no symbols from us beyond the
+    # parser entry point, and we need none from it at link time.
+
+    if(BUILD_TOOLS)
+        add_executable(mc_tracking_ds tools/ds_track.cpp)
+        target_link_libraries(mc_tracking_ds PRIVATE mc_tracking)
+    endif()
+endif()
 
 # ---- Executable: mc_tracking_video (offline OpenCV driver) ----
 add_executable(mc_tracking_video src/main.cpp)
-target_link_libraries(mc_tracking_video PRIVATE mc_tracking)
+target_link_libraries(mc_tracking_video PRIVATE mc_tracking opencv_videoio opencv_imgcodecs)
 endif()
 
 if(BUILD_TOOLS)
@@ -136,7 +176,7 @@ if(BUILD_TOOLS)
     # Cross-camera ReID demo: splits one clip into two views and runs
     # the full MultiCameraOrchestrator over them.
     add_executable(crosscam_split_demo tools/crosscam_split_demo.cpp)
-    target_link_libraries(crosscam_split_demo PRIVATE mc_tracking)
+    target_link_libraries(crosscam_split_demo PRIVATE mc_tracking opencv_videoio opencv_imgcodecs)
 endif()
 
 if(MCT_BUILD_TESTS)
@@ -163,5 +203,6 @@ if(NOT MCT_CPU_ONLY)
 endif()
 message(STATUS "  OpenCV:           ${OpenCV_VERSION}")
 message(STATUS "  Build tools:      ${BUILD_TOOLS}")
+message(STATUS "  DeepStream path:  ${BUILD_DEEPSTREAM}")
 message(STATUS "  Build tests:      ${MCT_BUILD_TESTS}")
 message(STATUS "")

@@ -43,27 +43,26 @@ Tuning notes:
 - `match_thresh=0.8` is the (1 - IoU) cost cap. Tightening to 0.7
   reduces ID switches at the cost of more new-track spawns.
 
-## NvDCF - why it is not here
+## NvDCF - why it is not an ITracker
 
 NvDCF is not a tracker anyone reimplements: it lives inside
-DeepStream's `libnvds_nvmultiobjecttracker.so`. A project like this
-one cannot run it in-process. The only way to use it is to build a
-DeepStream pipeline and let a src-pad probe forward the tracker
-metadata that plugin already produced.
+DeepStream's `libnvds_nvmultiobjecttracker.so` and only runs as the
+`nvtracker` element of a DeepStream pipeline. That pipeline exists in
+this repo: `mc_tracking_ds` wires
+`nvurisrcbin -> nvstreammux -> nvinfer (YOLO person) -> nvtracker`
+and a src-pad probe converts each frame's `NvDsObjectMeta` - where
+`object_id` is NvDCF's stable per-stream track id - into the same
+`Track` values the rest of the library uses.
 
-That pipeline is on the roadmap and is not in this tree, so there is
-no NvDCF backend to select. `tracker.type: nvdcf` parses - the schema
-keeps it so an existing config gets a useful message rather than
-"unknown tracker" - and then `make_tracker` throws:
+What stays true: NvDCF cannot be selected as `tracker.type` for the
+in-process OpenCV driver, and `make_tracker` still throws for it with
+a message pointing at the DeepStream binary. The two in-process
+backends and NvDCF meet at the `Track` type, not at `ITracker`.
 
-> the NvDCF tracker requires a DeepStream pipeline that is not
-> implemented in this reference; use bytetrack or iou
-
-An earlier revision of this file described a wrapper that ingested
-probe output. The wrapper existed, but nothing ever called its
-`ingest_tracker_results`, so selecting `nvdcf` produced a tracker that
-returned an empty result for every frame. It was removed rather than
-documented.
+Note the config schema: `configs/tracker_nvdcf.yml` uses the
+DeepStream 8.x parameter set. The DS6-era schema this file used to
+carry makes DS8's DataAssociator segfault - found the hard way, on a
+live run.
 
 ## Choosing the right backend
 

@@ -1,7 +1,7 @@
 <h1 align="center">multi-camera-person-tracking</h1>
 
 <p align="center">
-  <i>C++ pipeline for tracking people across many cameras with a YOLO11 detector + a pluggable single-camera tracker (BYTETrack / IoU), OSNet ReID, and Hungarian-assigned cross-camera identity matching.</i>
+  <i>C++ pipeline for tracking people across many cameras with a YOLO11 detector + a pluggable single-camera tracker (BYTETrack / IoU in-process, NvDCF via the DeepStream pipeline), OSNet ReID, and Hungarian-assigned cross-camera identity matching.</i>
 </p>
 
 <p align="center">
@@ -108,17 +108,20 @@ patterns. All algorithms are public; the code is original.
 
 - **YOLO11 person detector** with letterboxed input (decodes the
   Ultralytics `1 x 84 x N` head shared by YOLOv8 / YOLOv9 / YOLO11)
-- **Three single-camera tracker backends behind a common interface:**
+- **Two in-process tracker backends behind a common interface:**
     - `ByteTrack` - two-stage cascade (Zhang et al., ECCV 2022)
     - `IouTracker` - greedy IoU baseline
+- **NvDCF via DeepStream**: `mc_tracking_ds` runs
+  `nvurisrcbin -> nvstreammux -> nvinfer -> nvtracker` with a src-pad
+  probe that converts `NvDsObjectMeta` into the same `Track` type the
+  rest of the library speaks; the repo also ships the gst-nvinfer
+  custom parser for the Ultralytics head (`src/ds/yolo_parser.cpp`)
 - **OSNet ReID** (Zhou et al., ICCV 2019) embedding extractor
 - **Per-track rolling appearance gallery** (`ReidGallery`)
 - **Cross-camera matcher** with zone-transition + spatial-temporal
   gating and Hungarian assignment
 - **OpenCV-based offline driver** that runs single-cam or multi-cam
-- **Docker + docker-compose** (DeepStream-devel base image, used for
-  the CUDA + TensorRT toolchain it ships; the repo itself contains no
-  DeepStream code)
+- **Docker + docker-compose** (DeepStream-devel base image)
 - **Benchmark CLI** for per-frame latency
 
 ## Architecture
@@ -217,7 +220,9 @@ When `transitions` is empty, any-to-any pairing is allowed.
 ├── cmake/
 ├── configs/
 │   ├── system_config.yaml          tracker / reid / crosscam
-│   └── cameras.yaml                multi-camera topology
+│   ├── cameras.yaml                multi-camera topology
+│   ├── pgie_yolo_person.txt        gst-nvinfer config (person class)
+│   └── tracker_nvdcf.yml           NvDCF config (DeepStream 8.x schema)
 ├── docker/, docker-compose.yml
 ├── include/mc_tracking/
 │   ├── config/, utils/
@@ -227,11 +232,13 @@ When `transitions` is empty, any-to-any pairing is allowed.
 │   ├── trt/       trt_engine, yolov8_detector
 │   ├── pipeline/  single_camera, multi_camera
 │   └── overlay/
-├── src/                  (mirrors include/)
+├── src/                  (mirrors include/; + ds/yolo_parser.cpp,
+│                          the gst-nvinfer parser for the 1x84xN head)
 ├── tests/                113 GoogleTest cases over the CPU-only core
 ├── tools/
 │   ├── benchmark.cpp               per-stage latency sweep
-│   └── crosscam_split_demo.cpp     the cross-camera demo above
+│   ├── crosscam_split_demo.cpp     the cross-camera demo above
+│   └── ds_track.cpp                DeepStream + NvDCF driver (mc_tracking_ds)
 ├── scripts/              download_models, build_engines, infer_video
 └── docs/
     ├── architecture.md
@@ -266,12 +273,14 @@ upstream.
 
 ## Limitations
 
-- **There is no DeepStream pipeline in this repo.** The OpenCV driver
-  is the only one, and it runs cameras sequentially in a single
-  thread. Running cameras in parallel through `nvurisrcbin` sources is
-  the roadmap item below, which is also why `tracker.type: nvdcf` is
-  rejected at startup - NvDCF only produces tracks inside a DeepStream
-  pipeline.
+- **The DeepStream path does per-camera tracking only.** `mc_tracking_ds`
+  runs every camera through YOLO + NvDCF in parallel and hands per-frame
+  track batches to a callback, but it does not stamp global ids: the
+  cross-camera matcher scores ReID embeddings, and nothing in that
+  pipeline extracts them yet (OSNet as a secondary GIE is the roadmap
+  entry). Cross-camera identity remains the OpenCV driver's job.
+  `tracker.type: nvdcf` is still rejected by the in-process driver -
+  NvDCF runs inside DeepStream's nvtracker element, not as an ITracker.
 - The Hungarian solver here is a simplified greedy-with-augment
   variant; for >=100 active global ids you may want to swap in a
   full Munkres implementation.
@@ -283,8 +292,11 @@ upstream.
 
 ## Roadmap
 
-- [ ] DeepStream pipeline that exposes the same probe-based
-      orchestrator as the OpenCV path
+- [x] DeepStream pipeline: nvurisrcbin -> nvstreammux -> nvinfer (YOLO)
+      -> nvtracker (NvDCF) with a src-pad probe delivering per-camera
+      `Track` batches (`mc_tracking_ds`)
+- [ ] OSNet as a secondary GIE on that pipeline, so the probe can feed
+      `IdentityMatcher` embeddings and stamp global ids on live streams
 - [ ] Camera homography support in the cross-camera matcher
 - [ ] Optional embedding cache (Redis) for clusters spanning
       multiple processes
