@@ -64,7 +64,7 @@ GstPadProbeReturn DeepStreamPipeline::Impl::on_tracker_buffer(GstPad* /*pad*/,
         return GST_PAD_PROBE_OK;
     }
     GstBuffer* buf = GST_PAD_PROBE_INFO_BUFFER(info);
-    NvDsBatchMeta* batch = gst_buffer_get_nvds_batch_meta(buf);
+    const NvDsBatchMeta* batch = gst_buffer_get_nvds_batch_meta(buf);
     if (batch == nullptr) {
         return GST_PAD_PROBE_OK;
     }
